@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.sigmashake.com/schemas/query-request.json",
+  "title": "QueryRequest",
+  "description": "DB Server query request with filters, projections, aggregates, and time ranges",
+  "type": "object",
+  "required": ["table"],
+  "properties": {
+    "table": {
+      "type": "string"
+    },
+    "filters": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Filter" }
+    },
+    "projections": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "aggregates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Aggregate" }
+    },
+    "group_by": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "time_range": {
+      "$ref": "#/$defs/TimeRange"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Filter": {
+      "type": "object",
+      "required": ["column", "op", "value"],
+      "properties": {
+        "column": { "type": "string" },
+        "op": {
+          "type": "string",
+          "enum": ["eq", "ne", "lt", "le", "gt", "ge"]
+        },
+        "value": {}
+      },
+      "additionalProperties": false
+    },
+    "Aggregate": {
+      "type": "object",
+      "required": ["column", "function"],
+      "properties": {
+        "column": { "type": "string" },
+        "function": {
+          "type": "string",
+          "enum": ["count", "sum", "min", "max", "avg"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TimeRange": {
+      "type": "object",
+      "required": ["column", "start", "end"],
+      "properties": {
+        "column": { "type": "string" },
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

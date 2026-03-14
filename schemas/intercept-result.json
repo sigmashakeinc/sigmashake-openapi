@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.sigmashake.com/schemas/intercept-result.json",
+  "title": "InterceptResult",
+  "description": "Gateway interception decision for a tool call",
+  "type": "object",
+  "required": ["allowed", "reason", "cost_units", "violations"],
+  "properties": {
+    "allowed": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "cost_units": {
+      "type": "number",
+      "format": "double"
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Violation"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Violation": {
+      "type": "object",
+      "required": ["rule", "message", "severity"],
+      "properties": {
+        "rule": { "type": "string" },
+        "message": { "type": "string" },
+        "severity": {
+          "type": "string",
+          "enum": ["info", "low", "medium", "high", "critical"]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

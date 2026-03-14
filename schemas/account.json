@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.sigmashake.com/schemas/account.json",
+  "title": "Account",
+  "description": "Account with subscription details",
+  "type": "object",
+  "required": ["id", "name", "subscription", "created_at", "updated_at"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "subscription": {
+      "$ref": "#/$defs/Subscription"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Subscription": {
+      "type": "object",
+      "required": ["tier", "seats_purchased", "status", "current_period_start", "current_period_end"],
+      "properties": {
+        "tier": {
+          "type": "string",
+          "enum": ["Free", "Pro", "Enterprise"]
+        },
+        "seats_purchased": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Active", "PastDue", "Canceled", "Trialing"]
+        },
+        "current_period_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "current_period_end": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

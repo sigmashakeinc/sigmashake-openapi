@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.sigmashake.com/schemas/error.json",
+  "title": "Error",
+  "description": "Standard error response returned by all SigmaShake APIs",
+  "type": "object",
+  "required": ["error"],
+  "properties": {
+    "error": {
+      "type": "string",
+      "description": "Human-readable error description"
+    }
+  },
+  "additionalProperties": false
+}

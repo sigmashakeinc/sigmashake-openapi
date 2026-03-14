@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.sigmashake.com/schemas/correlated-session.json",
+  "title": "CorrelatedSession",
+  "description": "A session with correlated events and threat scoring",
+  "type": "object",
+  "required": ["session_id", "tenant_id", "agent_id", "events", "threat_score", "created_at"],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "agent_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "threat_score": {
+      "type": "number",
+      "format": "double",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

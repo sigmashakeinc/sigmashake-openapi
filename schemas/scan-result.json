@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.sigmashake.com/schemas/scan-result.json",
+  "title": "ScanResult",
+  "description": "Result from a Shield Daemon policy scan",
+  "type": "object",
+  "required": ["detector_id", "detector_version", "verdict", "evidence", "severity"],
+  "properties": {
+    "detector_id": {
+      "type": "string"
+    },
+    "detector_version": {
+      "type": "string"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["allow", "deny", "warn", "escalate"]
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    }
+  },
+  "additionalProperties": false
+}
