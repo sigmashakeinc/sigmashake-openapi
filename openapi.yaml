@@ -1,0 +1,3148 @@
+openapi: 3.1.0
+info:
+  title: SigmaShake Platform API
+  version: 1.0.0
+  description: |
+    Unified API specification for the SigmaShake AI-Native platform.
+    Covers Agent API, Account API, Shield Daemon, SOC API, Gateway, and DB Server.
+  contact:
+    name: SigmaShake Engineering
+    url: https://sigmashake.com
+  license:
+    name: Proprietary
+    url: https://sigmashake.com/license
+
+servers:
+  - url: https://api.sigmashake.com
+    description: Production
+  - url: https://staging-api.sigmashake.com
+    description: Staging
+
+tags:
+  - name: agent-auth
+    description: Agent authentication and token management
+  - name: agent-identity
+    description: Agent identity issuance, verification, and revocation
+  - name: agent-documents
+    description: Document mutation, retrieval, and search
+  - name: agent-memory
+    description: Agent memory store and recall
+  - name: agent-health
+    description: Agent API health and status
+  - name: account
+    description: Account and subscription management
+  - name: account-seats
+    description: Seat management within accounts
+  - name: account-usage
+    description: Account usage metrics
+  - name: shield
+    description: Shield Daemon agent registration and scanning
+  - name: soc-incidents
+    description: SOC incident management
+  - name: soc-alerts
+    description: SOC alert retrieval
+  - name: soc-metrics
+    description: SOC service metrics
+  - name: soc-health
+    description: SOC platform health and status
+  - name: soc-compliance
+    description: SOC compliance export and purge
+  - name: soc-logs
+    description: SOC log ingestion and query
+  - name: soc-proxy
+    description: SOC proxy tunnel events
+  - name: soc-correlation
+    description: SOC session correlation and threat detection
+  - name: soc-analytics
+    description: SOC analytics dashboards
+  - name: gateway
+    description: Gateway tool call interception
+  - name: db-tables
+    description: DB Server table management
+  - name: db-data
+    description: DB Server data insertion and query
+  - name: db-vector
+    description: DB Server vector search
+  - name: db-stream
+    description: DB Server SSE streaming
+  - name: db-cluster
+    description: DB Server cluster management
+  - name: db-tenant
+    description: DB Server tenant data management
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token. Claims include: sub, roles, exp, iat, iss, tenant_id, tier.
+
+  schemas:
+    # ── Common ──────────────────────────────────────────────────
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error description
+      example:
+        error: "unauthorized: token expired"
+
+    HealthOk:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+      example:
+        status: ok
+
+    Tier:
+      type: string
+      enum: [Free, Pro, Enterprise]
+
+    Role:
+      type: string
+      enum: [Owner, Admin, Member]
+
+    # ── Agent API: Auth ─────────────────────────────────────────
+    TokenRequest:
+      type: object
+      required: [agent_id, scopes]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        scopes:
+          type: array
+          items:
+            type: string
+        ttl_secs:
+          type: integer
+          minimum: 1
+          description: Optional token TTL in seconds
+
+    TokenResponse:
+      type: object
+      required: [token, expires_at]
+      properties:
+        token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+
+    # ── Agent API: Identity ─────────────────────────────────────
+    IssuanceModel:
+      type: string
+      enum: [direct, delegated]
+
+    IssueIdentityRequest:
+      type: object
+      required: [agent_id, capabilities, ttl_secs, delegation_chain]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        capabilities:
+          type: array
+          items:
+            type: string
+        ttl_secs:
+          type: integer
+          minimum: 1
+        issuance_model:
+          $ref: "#/components/schemas/IssuanceModel"
+        delegator:
+          type: string
+          format: uuid
+          description: Agent ID of the delegating agent (required if issuance_model is delegated)
+        delegation_chain:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    IdentityTokenResponse:
+      type: object
+      required: [token, agent_id, trust_domain, expires_in]
+      properties:
+        token:
+          type: string
+        agent_id:
+          type: string
+          format: uuid
+        trust_domain:
+          type: string
+        expires_in:
+          type: integer
+          description: Seconds until token expiry
+
+    VerifyIdentityRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    AgentIdentityClaims:
+      type: object
+      required: [agent_id, capabilities, trust_domain, issued_at, expires_at, issuance_model, delegation_chain]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        capabilities:
+          type: array
+          items:
+            type: string
+        trust_domain:
+          type: string
+        issued_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        issuance_model:
+          $ref: "#/components/schemas/IssuanceModel"
+        delegator:
+          type: string
+          format: uuid
+        delegation_chain:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    RevokeIdentityRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    # ── Agent API: Documents ────────────────────────────────────
+    MutationRequest:
+      type: object
+      required: [resource, action, payload]
+      properties:
+        resource:
+          type: string
+        action:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+
+    MutationResponse:
+      type: object
+      required: [id, success]
+      properties:
+        id:
+          type: string
+          format: uuid
+        success:
+          type: boolean
+
+    DocumentMetadata:
+      type: object
+      additionalProperties: true
+
+    DocumentClassification:
+      type: string
+      enum: [public, internal, confidential, restricted]
+
+    Document:
+      type: object
+      required: [id, tenant_id, content, metadata, classification]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        content:
+          type: object
+          additionalProperties: true
+        metadata:
+          $ref: "#/components/schemas/DocumentMetadata"
+        classification:
+          $ref: "#/components/schemas/DocumentClassification"
+
+    SearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 20
+
+    SearchResponse:
+      type: object
+      required: [documents, total]
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+        total:
+          type: integer
+
+    # ── Agent API: Memory ───────────────────────────────────────
+    StoreRequest:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+        value:
+          type: object
+          additionalProperties: true
+        tags:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    MemoryEntry:
+      type: object
+      required: [key, value, tags, created_at]
+      properties:
+        key:
+          type: string
+        value:
+          type: object
+          additionalProperties: true
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    MemoryQuery:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+        prefix:
+          type: string
+        content:
+          type: string
+
+    # ── Agent API: Status ───────────────────────────────────────
+    AuthenticatedStatus:
+      type: object
+      required: [authenticated, sub, roles]
+      properties:
+        authenticated:
+          type: boolean
+        sub:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+
+    # ── Account API ─────────────────────────────────────────────
+    SubscriptionStatus:
+      type: string
+      enum: [Active, PastDue, Canceled, Trialing]
+
+    Subscription:
+      type: object
+      required: [tier, seats_purchased, status, current_period_start, current_period_end]
+      properties:
+        tier:
+          $ref: "#/components/schemas/Tier"
+        seats_purchased:
+          type: integer
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
+        current_period_start:
+          type: string
+          format: date-time
+        current_period_end:
+          type: string
+          format: date-time
+
+    Account:
+      type: object
+      required: [id, name, subscription, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        subscription:
+          $ref: "#/components/schemas/Subscription"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateAccountBody:
+      type: object
+      required: [name, tier]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        tier:
+          $ref: "#/components/schemas/Tier"
+
+    UpdateSubscriptionBody:
+      type: object
+      required: [tier, seats]
+      properties:
+        tier:
+          $ref: "#/components/schemas/Tier"
+        seats:
+          type: integer
+          minimum: 1
+
+    Seat:
+      type: object
+      required: [id, tenant_id, user_id, role, assigned_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        role:
+          $ref: "#/components/schemas/Role"
+        assigned_at:
+          type: string
+          format: date-time
+
+    AddSeatBody:
+      type: object
+      required: [user_id, role]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        role:
+          $ref: "#/components/schemas/Role"
+
+    TenantUsage:
+      type: object
+      required: [tenant_id, period_start, seats_used, agents_registered, tool_calls, cost_units]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        period_start:
+          type: string
+          format: date-time
+        seats_used:
+          type: integer
+        agents_registered:
+          type: integer
+        tool_calls:
+          type: integer
+        cost_units:
+          type: number
+          format: double
+
+    # ── Shield Daemon ───────────────────────────────────────────
+    AgentType:
+      type: string
+      enum: [autonomous, supervised, tool, orchestrator]
+
+    AgentRegistration:
+      type: object
+      required: [agent_id, agent_type, allowed_scopes, session_ttl_secs]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        agent_type:
+          $ref: "#/components/schemas/AgentType"
+        allowed_scopes:
+          type: array
+          items:
+            type: string
+        token_budget:
+          type: integer
+          minimum: 0
+        session_ttl_secs:
+          type: integer
+          minimum: 1
+
+    AgentSession:
+      type: object
+      required: [session_id, agent_id, agent_type, created_at, expires_at]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        agent_type:
+          $ref: "#/components/schemas/AgentType"
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    ScanOperation:
+      type: object
+      required: [tool_name, input]
+      properties:
+        tool_name:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+        output:
+          type: object
+          additionalProperties: true
+
+    ScanContext:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        tier:
+          $ref: "#/components/schemas/Tier"
+        prior_violations:
+          type: integer
+
+    ScanRequest:
+      type: object
+      required: [agent_id, session_id, operation, context]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        operation:
+          $ref: "#/components/schemas/ScanOperation"
+        context:
+          $ref: "#/components/schemas/ScanContext"
+
+    Verdict:
+      type: string
+      enum: [allow, deny, warn, escalate]
+
+    Severity:
+      type: string
+      enum: [info, low, medium, high, critical]
+
+    ScanResult:
+      type: object
+      required: [detector_id, detector_version, verdict, evidence, severity]
+      properties:
+        detector_id:
+          type: string
+        detector_version:
+          type: string
+        verdict:
+          $ref: "#/components/schemas/Verdict"
+        evidence:
+          type: string
+        severity:
+          $ref: "#/components/schemas/Severity"
+
+    Capabilities:
+      type: object
+      required: [agent_id, allowed_scopes, token_budget, token_used]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        allowed_scopes:
+          type: array
+          items:
+            type: string
+        token_budget:
+          type: integer
+        token_used:
+          type: integer
+
+    # ── SOC API ─────────────────────────────────────────────────
+    IncidentStatus:
+      type: string
+      enum: [open, acknowledged, resolved]
+
+    IncidentSeverity:
+      type: string
+      enum: [info, low, medium, high, critical]
+
+    StoredIncident:
+      type: object
+      required: [id, title, status, severity, service, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+        service:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        acknowledged_at:
+          type: string
+          format: date-time
+        acknowledged_by:
+          type: string
+        resolved_at:
+          type: string
+          format: date-time
+        resolved_by:
+          type: string
+        resolution_summary:
+          type: string
+
+    Alert:
+      type: object
+      required: [id, name, severity, service, fired_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+        service:
+          type: string
+        message:
+          type: string
+        fired_at:
+          type: string
+          format: date-time
+
+    MetricSummary:
+      type: object
+      required: [name, value, unit, timestamp]
+      properties:
+        name:
+          type: string
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    ServiceHealth:
+      type: object
+      required: [service, status]
+      properties:
+        service:
+          type: string
+        status:
+          type: string
+          enum: [healthy, degraded, down]
+        latency_ms:
+          type: number
+        last_check:
+          type: string
+          format: date-time
+
+    AggregateHealth:
+      type: object
+      required: [overall, services]
+      properties:
+        overall:
+          type: string
+          enum: [healthy, degraded, down]
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceHealth"
+
+    PlatformStatus:
+      type: object
+      required: [status, version, uptime_secs]
+      properties:
+        status:
+          type: string
+          enum: [operational, degraded, outage]
+        version:
+          type: string
+        uptime_secs:
+          type: integer
+
+    ComplianceExportManifest:
+      type: object
+      required: [tenant_id, exported_at, tables, total_rows]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        exported_at:
+          type: string
+          format: date-time
+        tables:
+          type: array
+          items:
+            type: string
+        total_rows:
+          type: integer
+
+    CompliancePurgeProof:
+      type: object
+      required: [tenant_id, purged_at, tables_purged, rows_deleted]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        purged_at:
+          type: string
+          format: date-time
+        tables_purged:
+          type: array
+          items:
+            type: string
+        rows_deleted:
+          type: integer
+
+    LlmLogEntry:
+      type: object
+      required: [session_id, agent_id, tenant_id, model, prompt_tokens, completion_tokens, timestamp]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        model:
+          type: string
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        cost_units:
+          type: number
+          format: double
+        timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+
+    IngestResponse:
+      type: object
+      required: [accepted, ingested]
+      properties:
+        accepted:
+          type: integer
+        ingested:
+          type: integer
+
+    StoredLlmLog:
+      type: object
+      required: [id, session_id, agent_id, tenant_id, model, prompt_tokens, completion_tokens, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        model:
+          type: string
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        cost_units:
+          type: number
+          format: double
+        timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ProxyTunnelEvent:
+      type: object
+      required: [session_id, tenant_id, event_type, timestamp]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+        host:
+          type: string
+        bytes_in:
+          type: integer
+        bytes_out:
+          type: integer
+        status_code:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    ProxyEventsAccepted:
+      type: object
+      required: [accepted]
+      properties:
+        accepted:
+          type: integer
+
+    CorrelationFilter:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        min_severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+
+    CorrelatedSession:
+      type: object
+      required: [session_id, tenant_id, agent_id, events, threat_score, created_at]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        threat_score:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+
+    TimelineEvent:
+      type: object
+      required: [timestamp, event_type, source]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        event_type:
+          type: string
+        source:
+          type: string
+        detail:
+          type: object
+          additionalProperties: true
+
+    SessionTimeline:
+      type: object
+      required: [session_id, events]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEvent"
+
+    HostTrafficSummary:
+      type: object
+      required: [host, request_count, bytes_total]
+      properties:
+        host:
+          type: string
+        request_count:
+          type: integer
+        bytes_total:
+          type: integer
+
+    SessionCostSummary:
+      type: object
+      required: [session_id, agent_id, cost_units, tool_calls]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+        cost_units:
+          type: number
+          format: double
+        tool_calls:
+          type: integer
+
+    ThreatHeatmapEntry:
+      type: object
+      required: [hour, day, threat_count, avg_severity]
+      properties:
+        hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        day:
+          type: string
+        threat_count:
+          type: integer
+        avg_severity:
+          type: number
+          format: double
+
+    AckIncidentBody:
+      type: object
+      required: [by]
+      properties:
+        by:
+          type: string
+
+    ResolveIncidentBody:
+      type: object
+      required: [by, summary]
+      properties:
+        by:
+          type: string
+        summary:
+          type: string
+
+    # ── Gateway ─────────────────────────────────────────────────
+    ToolCall:
+      type: object
+      required: [name, input, tenant_id, tier, session_id, agent_id]
+      properties:
+        name:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+        tenant_id:
+          type: string
+          format: uuid
+        tier:
+          $ref: "#/components/schemas/Tier"
+        session_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+          format: uuid
+
+    ToolResult:
+      type: object
+      required: [tool_call, output, elapsed_ms]
+      properties:
+        tool_call:
+          $ref: "#/components/schemas/ToolCall"
+        output:
+          type: object
+          additionalProperties: true
+        error:
+          type: string
+        elapsed_ms:
+          type: integer
+
+    Violation:
+      type: object
+      required: [rule, message, severity]
+      properties:
+        rule:
+          type: string
+        message:
+          type: string
+        severity:
+          $ref: "#/components/schemas/Severity"
+
+    InterceptResult:
+      type: object
+      required: [allowed, reason, cost_units, violations]
+      properties:
+        allowed:
+          type: boolean
+        reason:
+          type: string
+        cost_units:
+          type: number
+          format: double
+        violations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Violation"
+
+    # ── DB Server ───────────────────────────────────────────────
+    ColumnType:
+      type: string
+      enum: [uint64, int64, float64, string, timestamp, uuid, bool, json]
+
+    Compression:
+      type: string
+      enum: [lz4, delta_lz4, dict_lz4]
+
+    ColumnDef:
+      type: object
+      required: [name, col_type]
+      properties:
+        name:
+          type: string
+        col_type:
+          $ref: "#/components/schemas/ColumnType"
+        compression:
+          $ref: "#/components/schemas/Compression"
+
+    CreateTableRequest:
+      type: object
+      required: [name, columns]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ColumnDef"
+          minItems: 1
+          maxItems: 500
+
+    CreateTableResponse:
+      type: object
+      required: [name, columns, created_at]
+      properties:
+        name:
+          type: string
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ColumnDef"
+        created_at:
+          type: string
+          format: date-time
+
+    ColumnData:
+      type: object
+      required: [name, data]
+      properties:
+        name:
+          type: string
+        data:
+          type: array
+          items: {}
+
+    InsertRequest:
+      type: object
+      required: [table, columns]
+      properties:
+        table:
+          type: string
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ColumnData"
+
+    InsertResponse:
+      type: object
+      required: [ok, rows_inserted]
+      properties:
+        ok:
+          type: boolean
+        rows_inserted:
+          type: integer
+
+    FilterOp:
+      type: string
+      enum: [eq, ne, lt, le, gt, ge]
+
+    Filter:
+      type: object
+      required: [column, op, value]
+      properties:
+        column:
+          type: string
+        op:
+          $ref: "#/components/schemas/FilterOp"
+        value: {}
+
+    AggregateType:
+      type: string
+      enum: [count, sum, min, max, avg]
+
+    Aggregate:
+      type: object
+      required: [column, function]
+      properties:
+        column:
+          type: string
+        function:
+          $ref: "#/components/schemas/AggregateType"
+
+    TimeRange:
+      type: object
+      required: [column, start, end]
+      properties:
+        column:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+
+    QueryRequest:
+      type: object
+      required: [table]
+      properties:
+        table:
+          type: string
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/Filter"
+        projections:
+          type: array
+          items:
+            type: string
+        aggregates:
+          type: array
+          items:
+            $ref: "#/components/schemas/Aggregate"
+        group_by:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        offset:
+          type: integer
+          minimum: 0
+        time_range:
+          $ref: "#/components/schemas/TimeRange"
+        tenant_id:
+          type: string
+          format: uuid
+
+    QueryResponse:
+      type: object
+      required: [columns, rows, total]
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+        total:
+          type: integer
+
+    ScrollQueryRequest:
+      type: object
+      properties:
+        table:
+          type: string
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/Filter"
+        projections:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        time_range:
+          $ref: "#/components/schemas/TimeRange"
+        tenant_id:
+          type: string
+          format: uuid
+        cursor:
+          type: string
+
+    ScrollQueryResponse:
+      type: object
+      required: [columns, rows, next_cursor]
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page. Null if no more results.
+
+    VectorMetric:
+      type: string
+      enum: [cosine, dot_product, l2]
+
+    VectorSearchRequest:
+      type: object
+      required: [table, column, query, k, metric]
+      properties:
+        table:
+          type: string
+        column:
+          type: string
+        query:
+          type: array
+          items:
+            type: number
+            format: double
+          maxItems: 10000
+        k:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        metric:
+          $ref: "#/components/schemas/VectorMetric"
+
+    VectorSearchResult:
+      type: object
+      required: [id, score, data]
+      properties:
+        id:
+          type: string
+        score:
+          type: number
+          format: double
+        data:
+          type: object
+          additionalProperties: true
+
+    VectorSearchResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/VectorSearchResult"
+
+    PurgeTenantResponse:
+      type: object
+      required: [tenant_id, tables_purged, rows_deleted]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        tables_purged:
+          type: array
+          items:
+            type: string
+        rows_deleted:
+          type: integer
+
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        node_id:
+          type: string
+        cluster_size:
+          type: integer
+
+    ClusterNodeStatus:
+      type: string
+      enum: [active, draining, down]
+
+    ClusterInitRequest:
+      type: object
+      required: [node_id, advertise_addr]
+      properties:
+        node_id:
+          type: string
+        advertise_addr:
+          type: string
+
+    ClusterInitResponse:
+      type: object
+      required: [cluster_id, node_id, status]
+      properties:
+        cluster_id:
+          type: string
+          format: uuid
+        node_id:
+          type: string
+        status:
+          $ref: "#/components/schemas/ClusterNodeStatus"
+
+    ClusterAddNodeRequest:
+      type: object
+      required: [node_id, advertise_addr]
+      properties:
+        node_id:
+          type: string
+        advertise_addr:
+          type: string
+
+    ClusterNodeResponse:
+      type: object
+      required: [node_id, status]
+      properties:
+        node_id:
+          type: string
+        status:
+          $ref: "#/components/schemas/ClusterNodeStatus"
+
+    ClusterStatusResponse:
+      type: object
+      required: [cluster_id, nodes, leader]
+      properties:
+        cluster_id:
+          type: string
+          format: uuid
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClusterNodeResponse"
+        leader:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Resource conflict (duplicate)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    UnprocessableEntity:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotImplemented:
+      description: Feature not implemented
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+# ════════════════════════════════════════════════════════════════
+# PATHS
+# ════════════════════════════════════════════════════════════════
+paths:
+  # ── Agent API: Auth ─────────────────────────────────────────
+  /auth/token:
+    post:
+      operationId: createToken
+      tags: [agent-auth]
+      summary: Issue a JWT token for an agent
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+      responses:
+        "200":
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [agent-auth]
+      summary: Refresh an expired token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Agent API: Identity ─────────────────────────────────────
+  /v1/identity/issue:
+    post:
+      operationId: issueIdentity
+      tags: [agent-identity]
+      summary: Issue an identity token for an agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueIdentityRequest"
+      responses:
+        "200":
+          description: Identity token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityTokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/identity/verify:
+    post:
+      operationId: verifyIdentity
+      tags: [agent-identity]
+      summary: Verify an agent identity token and return claims
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyIdentityRequest"
+      responses:
+        "200":
+          description: Token valid, claims returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentIdentityClaims"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/identity/revoke:
+    post:
+      operationId: revokeIdentity
+      tags: [agent-identity]
+      summary: Revoke an agent identity token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeIdentityRequest"
+      responses:
+        "204":
+          description: Token revoked
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Agent API: Health & Status ──────────────────────────────
+  /health:
+    get:
+      operationId: agentHealth
+      tags: [agent-health]
+      summary: Agent API health check
+      security: []
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthOk"
+
+  /v1/status:
+    get:
+      operationId: agentStatus
+      tags: [agent-health]
+      summary: Authenticated agent status
+      responses:
+        "200":
+          description: Authenticated status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Agent API: Documents ────────────────────────────────────
+  /v1/documents:
+    post:
+      operationId: mutateDocument
+      tags: [agent-documents]
+      summary: Create or mutate a document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MutationRequest"
+      responses:
+        "200":
+          description: Mutation applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/documents/{id}:
+    get:
+      operationId: getDocument
+      tags: [agent-documents]
+      summary: Retrieve a document by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Document found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/search:
+    post:
+      operationId: searchDocuments
+      tags: [agent-documents]
+      summary: Full-text search across documents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Agent API: Memory ───────────────────────────────────────
+  /v1/memory:
+    post:
+      operationId: storeMemory
+      tags: [agent-memory]
+      summary: Store a memory entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreRequest"
+      responses:
+        "200":
+          description: Memory stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/memory/{key}:
+    get:
+      operationId: getMemory
+      tags: [agent-memory]
+      summary: Retrieve a memory entry by key
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Memory entry found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deleteMemory
+      tags: [agent-memory]
+      summary: Delete a memory entry by key
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Memory entry deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/memory/recall:
+    post:
+      operationId: recallMemory
+      tags: [agent-memory]
+      summary: Query memory entries by tags, prefix, or content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoryQuery"
+      responses:
+        "200":
+          description: Matching memory entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemoryEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Account API ─────────────────────────────────────────────
+  /v1/accounts:
+    post:
+      operationId: createAccount
+      tags: [account]
+      summary: Create a new account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountBody"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/accounts/{id}:
+    get:
+      operationId: getAccount
+      tags: [account]
+      summary: Get account details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/accounts/{id}/subscription:
+    put:
+      operationId: updateSubscription
+      tags: [account]
+      summary: Update account subscription tier and seats
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSubscriptionBody"
+      responses:
+        "200":
+          description: Subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/accounts/{id}/seats:
+    post:
+      operationId: addSeat
+      tags: [account-seats]
+      summary: Add a seat to an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddSeatBody"
+      responses:
+        "201":
+          description: Seat added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Seat"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listSeats
+      tags: [account-seats]
+      summary: List all seats for an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Seat list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Seat"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/accounts/{id}/seats/{user_id}:
+    delete:
+      operationId: removeSeat
+      tags: [account-seats]
+      summary: Remove a seat from an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Seat removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/accounts/{id}/usage:
+    get:
+      operationId: getAccountUsage
+      tags: [account-usage]
+      summary: Get usage metrics for an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Usage metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantUsage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Shield Daemon ───────────────────────────────────────────
+  /v1/agents/register:
+    post:
+      operationId: registerAgent
+      tags: [shield]
+      summary: Register an agent and create a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentRegistration"
+      responses:
+        "200":
+          description: Agent registered, session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/scan:
+    post:
+      operationId: scanOperation
+      tags: [shield]
+      summary: Scan an agent operation for policy violations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanRequest"
+      responses:
+        "200":
+          description: Scan results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScanResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/sessions/{id}:
+    get:
+      operationId: getSession
+      tags: [shield]
+      summary: Get agent session details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/capabilities/{id}:
+    get:
+      operationId: getCapabilities
+      tags: [shield]
+      summary: Get agent capabilities
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Agent capabilities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── SOC API ─────────────────────────────────────────────────
+  /v1/incidents:
+    get:
+      operationId: listIncidents
+      tags: [soc-incidents]
+      summary: List incidents with optional filters
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/IncidentStatus"
+        - name: severity
+          in: query
+          schema:
+            $ref: "#/components/schemas/IncidentSeverity"
+        - name: service
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+      responses:
+        "200":
+          description: Incident list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StoredIncident"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/incidents/{id}:
+    get:
+      operationId: getIncident
+      tags: [soc-incidents]
+      summary: Get a single incident by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Incident details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredIncident"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/incidents/{id}/ack:
+    post:
+      operationId: ackIncident
+      tags: [soc-incidents]
+      summary: Acknowledge an incident
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AckIncidentBody"
+      responses:
+        "200":
+          description: Incident acknowledged
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/incidents/{id}/resolve:
+    post:
+      operationId: resolveIncident
+      tags: [soc-incidents]
+      summary: Resolve an incident
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveIncidentBody"
+      responses:
+        "200":
+          description: Incident resolved
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/alerts:
+    get:
+      operationId: listAlerts
+      tags: [soc-alerts]
+      summary: List active alerts
+      responses:
+        "200":
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/metrics/{service}:
+    get:
+      operationId: getServiceMetrics
+      tags: [soc-metrics]
+      summary: Get metrics for a specific service
+      parameters:
+        - name: service
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Service metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MetricSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/health/aggregate:
+    get:
+      operationId: getAggregateHealth
+      tags: [soc-health]
+      summary: Get aggregate platform health
+      responses:
+        "200":
+          description: Aggregate health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregateHealth"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/compliance/{tenant_id}/export:
+    post:
+      operationId: exportCompliance
+      tags: [soc-compliance]
+      summary: Export all data for a tenant (compliance)
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Export manifest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceExportManifest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/compliance/{tenant_id}/purge:
+    post:
+      operationId: purgeCompliance
+      tags: [soc-compliance]
+      summary: Purge all data for a tenant (right to erasure)
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Purge proof
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompliancePurgeProof"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/logs/ingest:
+    post:
+      operationId: ingestLogs
+      tags: [soc-logs]
+      summary: Ingest LLM usage logs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/LlmLogEntry"
+      responses:
+        "200":
+          description: Ingestion result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/logs/llm:
+    get:
+      operationId: queryLlmLogs
+      tags: [soc-logs]
+      summary: Query stored LLM logs
+      parameters:
+        - name: tenant_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: agent_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: session_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 100
+      responses:
+        "200":
+          description: LLM log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StoredLlmLog"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/proxy/events:
+    post:
+      operationId: ingestProxyEvents
+      tags: [soc-proxy]
+      summary: Ingest proxy tunnel events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProxyTunnelEvent"
+      responses:
+        "200":
+          description: Events accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProxyEventsAccepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/correlation:
+    get:
+      operationId: queryCorrelation
+      tags: [soc-correlation]
+      summary: Query correlated sessions
+      parameters:
+        - name: tenant_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: agent_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: min_severity
+          in: query
+          schema:
+            $ref: "#/components/schemas/IncidentSeverity"
+      responses:
+        "200":
+          description: Correlated sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CorrelatedSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/correlation/{session_id}:
+    get:
+      operationId: getCorrelatedSession
+      tags: [soc-correlation]
+      summary: Get a single correlated session
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Correlated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CorrelatedSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/correlation/threats:
+    get:
+      operationId: queryThreats
+      tags: [soc-correlation]
+      summary: Query sessions flagged as threats
+      parameters:
+        - name: tenant_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: min_score
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: 0
+            maximum: 1
+        - name: start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+      responses:
+        "200":
+          description: Threat sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CorrelatedSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/sessions/{id}/timeline:
+    get:
+      operationId: getSessionTimeline
+      tags: [soc-correlation]
+      summary: Get timeline of events for a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Session timeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionTimeline"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/analytics/top-hosts:
+    get:
+      operationId: getTopHosts
+      tags: [soc-analytics]
+      summary: Top hosts by traffic volume
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+      responses:
+        "200":
+          description: Top hosts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HostTrafficSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/analytics/cost-per-session:
+    get:
+      operationId: getCostPerSession
+      tags: [soc-analytics]
+      summary: Cost breakdown per session
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+      responses:
+        "200":
+          description: Session costs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionCostSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/analytics/threat-heatmap:
+    get:
+      operationId: getThreatHeatmap
+      tags: [soc-analytics]
+      summary: Threat activity heatmap by hour and day
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 168
+      responses:
+        "200":
+          description: Heatmap entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ThreatHeatmapEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── SOC: Platform Status (separate from Agent /v1/status) ───
+  /v1/soc/status:
+    get:
+      operationId: getPlatformStatus
+      tags: [soc-health]
+      summary: Get overall platform status
+      responses:
+        "200":
+          description: Platform status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Gateway ─────────────────────────────────────────────────
+  /v1/intercept/pre:
+    post:
+      operationId: interceptPre
+      tags: [gateway]
+      summary: Pre-execution tool call interception
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolCall"
+      responses:
+        "200":
+          description: Intercept decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterceptResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/intercept/post:
+    post:
+      operationId: interceptPost
+      tags: [gateway]
+      summary: Post-execution tool result interception
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolResult"
+      responses:
+        "200":
+          description: Intercept decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterceptResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── DB Server ───────────────────────────────────────────────
+  /v1/db/health:
+    get:
+      operationId: dbHealth
+      tags: [db-tables]
+      summary: DB Server health check
+      security: []
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /v1/tables:
+    post:
+      operationId: createTable
+      tags: [db-tables]
+      summary: Create a new table
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTableRequest"
+      responses:
+        "200":
+          description: Table created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTableResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/insert:
+    post:
+      operationId: insertData
+      tags: [db-data]
+      summary: Insert rows into a table
+      description: |
+        Limits: 10MB request body, 500 columns, 1M rows per insert.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsertRequest"
+      responses:
+        "200":
+          description: Rows inserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsertResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/query:
+    post:
+      operationId: queryData
+      tags: [db-data]
+      summary: Query data from a table
+      description: |
+        Limits: 100k row limit per query.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryRequest"
+      responses:
+        "200":
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/query/scroll:
+    post:
+      operationId: scrollQuery
+      tags: [db-data]
+      summary: Paginated query with cursor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScrollQueryRequest"
+      responses:
+        "200":
+          description: Scroll results with cursor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScrollQueryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/vector/search:
+    post:
+      operationId: vectorSearch
+      tags: [db-vector]
+      summary: Vector similarity search
+      description: |
+        Limits: 10k vector dimensions, 1k results (k).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VectorSearchRequest"
+      responses:
+        "200":
+          description: Vector search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VectorSearchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/tenant/{tenant_id}:
+    delete:
+      operationId: purgeTenant
+      tags: [db-tenant]
+      summary: Purge all data for a tenant (admin only)
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tenant data purged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurgeTenantResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/stream/{table}:
+    get:
+      operationId: streamTable
+      tags: [db-stream]
+      summary: SSE stream of table changes
+      parameters:
+        - name: table
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/cluster/init:
+    post:
+      operationId: initCluster
+      tags: [db-cluster]
+      summary: Initialize a new cluster (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClusterInitRequest"
+      responses:
+        "200":
+          description: Cluster initialized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClusterInitResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/cluster/nodes:
+    post:
+      operationId: addClusterNode
+      tags: [db-cluster]
+      summary: Add a node to the cluster (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClusterAddNodeRequest"
+      responses:
+        "200":
+          description: Node added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClusterNodeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/cluster/nodes/{node_id}:
+    delete:
+      operationId: removeClusterNode
+      tags: [db-cluster]
+      summary: Remove a node from the cluster (admin only)
+      parameters:
+        - name: node_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Node removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClusterNodeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/cluster/nodes/{node_id}/status:
+    post:
+      operationId: updateClusterNodeStatus
+      tags: [db-cluster]
+      summary: Update node status (admin only)
+      parameters:
+        - name: node_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: "#/components/schemas/ClusterNodeStatus"
+      responses:
+        "200":
+          description: Node status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClusterNodeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/cluster/status:
+    get:
+      operationId: getClusterStatus
+      tags: [db-cluster]
+      summary: Get cluster status (admin only)
+      responses:
+        "200":
+          description: Cluster status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClusterStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
