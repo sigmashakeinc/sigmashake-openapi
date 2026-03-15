@@ -71,6 +71,14 @@ tags:
     description: DB Server tenant data management
   - name: auth-security
     description: User authentication security (2FA/TOTP, email verification, recovery codes)
+  - name: saml
+    description: SAML 2.0 Service Provider (SP) SSO configuration and endpoints
+  - name: scim
+    description: SCIM 2.0 (RFC 7644) user and group provisioning
+  - name: api-keys
+    description: API key generation, listing, and revocation
+  - name: audit-forwarding
+    description: Audit log forwarding configuration and delivery status
 
 security:
   - BearerAuth: []
