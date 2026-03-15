@@ -5031,6 +5031,107 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  # ── Watchdog: Monitoring & Status Page ────────────────────
+  /v1/watchdog/status:
+    get:
+      operationId: getWatchdogStatus
+      tags: [watchdog]
+      summary: Full status of all monitored workers
+      responses:
+        "200":
+          description: Current status of all services
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatchdogStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/watchdog/history:
+    get:
+      operationId: getWatchdogHistory
+      tags: [watchdog]
+      summary: Recent health check history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: service
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Health check history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WatchdogCheckRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/watchdog/public-status:
+    get:
+      operationId: getPublicStatus
+      tags: [watchdog]
+      summary: Public status page data (no auth, CORS)
+      security: []
+      responses:
+        "200":
+          description: Public-facing system status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatchdogStatus"
+
+  # ── Webhook DLQ ───────────────────────────────────────────
+  /v1/webhooks/dlq:
+    get:
+      operationId: listWebhookDlq
+      tags: [webhook-dlq]
+      summary: List dead letter queue entries
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: DLQ entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookDlqEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/webhooks/dlq/{id}/retry:
+    post:
+      operationId: retryWebhookDlq
+      tags: [webhook-dlq]
+      summary: Retry a failed webhook delivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Retry initiated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /v1/audit-log/forwarding/status:
     get:
       operationId: getAuditForwardingStatus
