@@ -1494,6 +1494,575 @@ components:
         recovery_codes_remaining:
           type: integer
 
+    # ── SAML 2.0 ──────────────────────────────────────────────────
+    SamlConfig:
+      type: object
+      required: [idp_entity_id, idp_sso_url, idp_certificate, name_id_format, enabled]
+      properties:
+        idp_entity_id:
+          type: string
+          description: IdP Entity ID (issuer URI)
+        idp_sso_url:
+          type: string
+          format: uri
+          description: IdP Single Sign-On URL
+        idp_slo_url:
+          type: string
+          format: uri
+          description: IdP Single Logout URL (optional)
+        idp_certificate:
+          type: string
+          description: IdP X.509 certificate in PEM format
+        name_id_format:
+          type: string
+          description: "SAML NameID format (e.g. urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress)"
+        attribute_mapping:
+          type: object
+          additionalProperties:
+            type: string
+          description: Mapping of SAML attributes to platform user fields
+        enabled:
+          type: boolean
+
+    SamlConfigRequest:
+      type: object
+      required: [idp_entity_id, idp_sso_url, idp_certificate, name_id_format]
+      properties:
+        idp_entity_id:
+          type: string
+        idp_sso_url:
+          type: string
+          format: uri
+        idp_slo_url:
+          type: string
+          format: uri
+        idp_certificate:
+          type: string
+          description: IdP X.509 certificate in PEM format
+        name_id_format:
+          type: string
+        attribute_mapping:
+          type: object
+          additionalProperties:
+            type: string
+        enabled:
+          type: boolean
+          default: true
+
+    SamlLoginRequest:
+      type: object
+      properties:
+        relay_state:
+          type: string
+          description: Optional RelayState passed through the SSO flow
+
+    SamlLoginResponse:
+      type: object
+      required: [redirect_url]
+      properties:
+        redirect_url:
+          type: string
+          format: uri
+          description: URL to redirect the user agent to the IdP
+
+    SamlAcsResponse:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+
+    # ── SCIM 2.0 (RFC 7643/7644) ─────────────────────────────────
+    ScimUser:
+      type: object
+      required: [schemas, userName, name, emails, active]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example: ["urn:ietf:params:scim:schemas:core:2.0:User"]
+        id:
+          type: string
+          format: uuid
+        externalId:
+          type: string
+        userName:
+          type: string
+        name:
+          type: object
+          required: [givenName, familyName]
+          properties:
+            givenName:
+              type: string
+            familyName:
+              type: string
+        emails:
+          type: array
+          items:
+            type: object
+            required: [value]
+            properties:
+              value:
+                type: string
+                format: email
+              type:
+                type: string
+              primary:
+                type: boolean
+        active:
+          type: boolean
+        groups:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              display:
+                type: string
+        meta:
+          type: object
+          properties:
+            resourceType:
+              type: string
+            created:
+              type: string
+              format: date-time
+            lastModified:
+              type: string
+              format: date-time
+            location:
+              type: string
+              format: uri
+
+    ScimGroup:
+      type: object
+      required: [schemas, displayName]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example: ["urn:ietf:params:scim:schemas:core:2.0:Group"]
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              display:
+                type: string
+              type:
+                type: string
+        meta:
+          type: object
+          properties:
+            resourceType:
+              type: string
+            created:
+              type: string
+              format: date-time
+            lastModified:
+              type: string
+              format: date-time
+            location:
+              type: string
+              format: uri
+
+    ScimListResponse:
+      type: object
+      required: [schemas, totalResults, startIndex, itemsPerPage, Resources]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"]
+        totalResults:
+          type: integer
+        startIndex:
+          type: integer
+        itemsPerPage:
+          type: integer
+        Resources:
+          type: array
+          items: {}
+
+    ScimBulkRequest:
+      type: object
+      required: [schemas, Operations]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example: ["urn:ietf:params:scim:api:messages:2.0:BulkRequest"]
+        Operations:
+          type: array
+          items:
+            type: object
+            required: [method, path]
+            properties:
+              method:
+                type: string
+                enum: [POST, PUT, PATCH, DELETE]
+              path:
+                type: string
+              bulkId:
+                type: string
+              data:
+                type: object
+                additionalProperties: true
+
+    ScimBulkResponse:
+      type: object
+      required: [schemas, Operations]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example: ["urn:ietf:params:scim:api:messages:2.0:BulkResponse"]
+        Operations:
+          type: array
+          items:
+            type: object
+            required: [method, path, status]
+            properties:
+              method:
+                type: string
+              path:
+                type: string
+              bulkId:
+                type: string
+              status:
+                type: string
+              response:
+                type: object
+                additionalProperties: true
+
+    ScimPatchOp:
+      type: object
+      required: [schemas, Operations]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"]
+        Operations:
+          type: array
+          items:
+            type: object
+            required: [op]
+            properties:
+              op:
+                type: string
+                enum: [add, remove, replace]
+              path:
+                type: string
+              value: {}
+
+    ScimError:
+      type: object
+      required: [schemas, status, detail]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        status:
+          type: string
+          description: HTTP status code as string
+        detail:
+          type: string
+        scimType:
+          type: string
+          description: "SCIM error type (e.g. invalidFilter, tooMany, uniqueness)"
+
+    ScimServiceProviderConfig:
+      type: object
+      required: [schemas, documentationUri, patch, bulk, filter, changePassword, sort, etag]
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example: ["urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"]
+        documentationUri:
+          type: string
+          format: uri
+        patch:
+          type: object
+          required: [supported]
+          properties:
+            supported:
+              type: boolean
+        bulk:
+          type: object
+          required: [supported, maxOperations, maxPayloadSize]
+          properties:
+            supported:
+              type: boolean
+            maxOperations:
+              type: integer
+            maxPayloadSize:
+              type: integer
+        filter:
+          type: object
+          required: [supported, maxResults]
+          properties:
+            supported:
+              type: boolean
+            maxResults:
+              type: integer
+        changePassword:
+          type: object
+          required: [supported]
+          properties:
+            supported:
+              type: boolean
+        sort:
+          type: object
+          required: [supported]
+          properties:
+            supported:
+              type: boolean
+        etag:
+          type: object
+          required: [supported]
+          properties:
+            supported:
+              type: boolean
+
+    # ── API Keys ──────────────────────────────────────────────────
+    ApiKeyScope:
+      type: string
+      enum: [read, write, admin]
+
+    ApiKeyCreateRequest:
+      type: object
+      required: [name, scopes]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+          minItems: 1
+        expires_at:
+          type: string
+          format: date-time
+          description: Optional expiration timestamp (ISO 8601)
+
+    ApiKeyCreateResponse:
+      type: object
+      required: [id, name, key, scopes, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key:
+          type: string
+          description: Full API key value. ONLY returned on create, never retrievable again.
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    ApiKeyMetadata:
+      type: object
+      required: [id, name, scopes, created_at, key_prefix]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+        key_prefix:
+          type: string
+          description: First 8 characters of the key for identification
+
+    ApiKeyListResponse:
+      type: object
+      required: [keys, total]
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyMetadata"
+        total:
+          type: integer
+
+    ApiKeyUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+          minItems: 1
+
+    # ── Audit Log Forwarding ──────────────────────────────────────
+    AuditSinkType:
+      type: string
+      enum: [webhook, s3, gcs]
+
+    WebhookSinkConfig:
+      type: object
+      required: [url, secret]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: HTTPS webhook endpoint URL
+        secret:
+          type: string
+          description: Shared secret for HMAC-SHA256 payload signing
+        retry_attempts:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 3
+        timeout_secs:
+          type: integer
+          minimum: 1
+          maximum: 60
+          default: 10
+
+    S3SinkConfig:
+      type: object
+      required: [bucket, region]
+      properties:
+        bucket:
+          type: string
+        prefix:
+          type: string
+          description: Object key prefix
+        region:
+          type: string
+        access_key_id:
+          type: string
+          description: AWS access key (omit if using role_arn)
+        secret_access_key:
+          type: string
+          description: AWS secret key (omit if using role_arn)
+        role_arn:
+          type: string
+          description: IAM role ARN for cross-account access
+
+    GcsSinkConfig:
+      type: object
+      required: [bucket]
+      properties:
+        bucket:
+          type: string
+        prefix:
+          type: string
+          description: Object name prefix
+        service_account_json:
+          type: string
+          description: GCP service account key JSON (omit if using workload identity)
+        workload_identity:
+          type: boolean
+          description: Use GCP Workload Identity Federation instead of service account key
+
+    AuditSink:
+      type: object
+      required: [type, config]
+      properties:
+        type:
+          $ref: "#/components/schemas/AuditSinkType"
+        config:
+          oneOf:
+            - $ref: "#/components/schemas/WebhookSinkConfig"
+            - $ref: "#/components/schemas/S3SinkConfig"
+            - $ref: "#/components/schemas/GcsSinkConfig"
+          discriminator:
+            propertyName: type
+
+    AuditForwardingConfig:
+      type: object
+      required: [enabled, sinks]
+      properties:
+        enabled:
+          type: boolean
+        sinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditSink"
+
+    AuditForwardingStatus:
+      type: object
+      required: [enabled, events_delivered_24h, events_failed_24h]
+      properties:
+        enabled:
+          type: boolean
+        last_delivery_at:
+          type: string
+          format: date-time
+        events_delivered_24h:
+          type: integer
+        events_failed_24h:
+          type: integer
+        last_error:
+          type: string
+
+    AuditForwardingTestResponse:
+      type: object
+      required: [success, latency_ms]
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string
+        latency_ms:
+          type: integer
+
   responses:
     BadRequest:
       description: Invalid request parameters
