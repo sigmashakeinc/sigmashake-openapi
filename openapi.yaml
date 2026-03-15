@@ -1396,6 +1396,96 @@ components:
         leader:
           type: string
 
+    # ── Auth Security ──────────────────────────────────────────
+    TotpStatusResponse:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+
+    TotpSetupResponse:
+      type: object
+      required: [qr_code_url, secret]
+      properties:
+        qr_code_url:
+          type: string
+          description: Data URI containing QR code PNG
+        secret:
+          type: string
+          description: Base32-encoded TOTP secret
+
+    TotpConfirmRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: 6-digit TOTP code
+
+    TotpConfirmResponse:
+      type: object
+      required: [recovery_codes]
+      properties:
+        recovery_codes:
+          type: array
+          items:
+            type: string
+          description: One-time recovery codes in XXXX-XXXX format
+
+    TotpCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: 6-digit TOTP code
+
+    EmailVerifySendRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    EmailVerifyConfirmRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: Email verification token from the link
+
+    RecoveryCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: Recovery code in XXXX-XXXX format
+
+    RecoveryCodesResponse:
+      type: object
+      required: [codes]
+      properties:
+        codes:
+          type: array
+          items:
+            type: string
+          description: Regenerated recovery codes in XXXX-XXXX format
+
+    SecurityStatusResponse:
+      type: object
+      required: [email_verified, totp_enabled, recovery_codes_remaining]
+      properties:
+        email_verified:
+          type: boolean
+        totp_enabled:
+          type: boolean
+        recovery_codes_remaining:
+          type: integer
+
   responses:
     BadRequest:
       description: Invalid request parameters
