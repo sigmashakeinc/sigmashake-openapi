@@ -7,6 +7,7 @@ Read this file before starting work. Claim a workstream or task by writing your 
 | ID | Name | Status | Contract | Workstream File |
 |----|------|--------|----------|-----------------|
 | ws-001 | Auth Security (2FA/TOTP, Email Verify, Recovery) | in-progress | rest:auth-security | [ws-001.md](workstreams/ws-001.md) |
+| ws-002 | Enterprise Readiness — Phase 1 | planned | rest:enterprise-p1 | [ws-002.md](workstreams/ws-002.md) |
 
 ## Recently Completed
 
