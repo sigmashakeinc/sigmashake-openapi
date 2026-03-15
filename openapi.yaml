@@ -110,13 +110,130 @@ components:
 
     HealthOk:
       type: object
-      required: [status]
+      required: [status, version]
       properties:
         status:
           type: string
-          enum: [ok]
+          enum: [ok, degraded, unhealthy]
+        version:
+          type: string
+          description: Git SHA of the deployed version
+        checked_at:
+          type: string
+          format: date-time
       example:
         status: ok
+        version: "a1b2c3d"
+
+    DeepHealthResponse:
+      type: object
+      required: [status, version, checks, checked_at]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        version:
+          type: string
+          description: Git SHA of the deployed version
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/DependencyCheck"
+        checked_at:
+          type: string
+          format: date-time
+
+    DependencyCheck:
+      type: object
+      required: [name, status, latency_ms]
+      properties:
+        name:
+          type: string
+          description: Name of the dependency being checked
+        status:
+          type: string
+          enum: [pass, warn, fail]
+        latency_ms:
+          type: integer
+        message:
+          type: string
+
+    WatchdogStatus:
+      type: object
+      required: [overall, services, checked_at]
+      properties:
+        overall:
+          type: string
+          enum: [operational, degraded, outage]
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/WatchdogServiceStatus"
+        active_incidents:
+          type: integer
+        checked_at:
+          type: string
+          format: date-time
+
+    WatchdogServiceStatus:
+      type: object
+      required: [name, status, uptime_pct]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy, unknown]
+        uptime_pct:
+          type: number
+          description: Rolling 90-day uptime percentage
+        last_check:
+          type: string
+          format: date-time
+        consecutive_failures:
+          type: integer
+        last_version:
+          type: string
+
+    WatchdogCheckRecord:
+      type: object
+      required: [service_name, status, checked_at]
+      properties:
+        service_name:
+          type: string
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        latency_ms:
+          type: integer
+        version:
+          type: string
+        checked_at:
+          type: string
+          format: date-time
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/DependencyCheck"
+
+    WebhookDlqEntry:
+      type: object
+      required: [id, endpoint_url, payload, failed_at, attempts]
+      properties:
+        id:
+          type: string
+          format: uuid
+        endpoint_url:
+          type: string
+        payload:
+          type: object
+        failed_at:
+          type: string
+          format: date-time
+        attempts:
+          type: integer
+        last_error:
+          type: string
 
     Tier:
       type: string
