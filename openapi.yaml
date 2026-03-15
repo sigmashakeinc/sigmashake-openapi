@@ -4040,3 +4040,881 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
+
+  # ── SAML 2.0 ────────────────────────────────────────────────────
+  /auth/saml/metadata:
+    get:
+      operationId: getSamlMetadata
+      tags: [saml]
+      summary: Get SP metadata XML (EntityDescriptor)
+      security: []
+      responses:
+        "200":
+          description: SAML SP metadata
+          content:
+            application/xml:
+              schema:
+                type: string
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/saml/login:
+    post:
+      operationId: initiateSamlLogin
+      tags: [saml]
+      summary: Initiate SP-initiated SSO (redirect to IdP)
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SamlLoginRequest"
+      responses:
+        "200":
+          description: Redirect URL to IdP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SamlLoginResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/saml/acs:
+    post:
+      operationId: samlAssertionConsumer
+      tags: [saml]
+      summary: Assertion Consumer Service — receives SAML Response from IdP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [SAMLResponse]
+              properties:
+                SAMLResponse:
+                  type: string
+                  description: Base64-encoded SAML Response
+                RelayState:
+                  type: string
+      responses:
+        "200":
+          description: Authentication successful, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SamlAcsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/saml/slo:
+    post:
+      operationId: samlSingleLogout
+      tags: [saml]
+      summary: Single Logout endpoint
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                SAMLRequest:
+                  type: string
+                  description: Base64-encoded SAML LogoutRequest
+                SAMLResponse:
+                  type: string
+                  description: Base64-encoded SAML LogoutResponse
+                RelayState:
+                  type: string
+      responses:
+        "200":
+          description: Logout processed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/saml/config:
+    get:
+      operationId: getSamlConfig
+      tags: [saml]
+      summary: Get tenant SAML configuration
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: SAML configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SamlConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      operationId: updateSamlConfig
+      tags: [saml]
+      summary: Configure or update SAML IdP settings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SamlConfigRequest"
+      responses:
+        "200":
+          description: SAML configuration saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SamlConfig"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deleteSamlConfig
+      tags: [saml]
+      summary: Remove SAML configuration
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: SAML configuration removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── SCIM 2.0 (RFC 7644) ─────────────────────────────────────────
+  /scim/v2/Users:
+    get:
+      operationId: scimListUsers
+      tags: [scim]
+      summary: List or filter users (RFC 7644)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: "SCIM filter expression (e.g. userName eq \"john@example.com\")"
+        - name: startIndex
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: count
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: User list
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: scimCreateUser
+      tags: [scim]
+      summary: Create a user via SCIM
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/ScimUser"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /scim/v2/Users/{id}:
+    get:
+      operationId: scimGetUser
+      tags: [scim]
+      summary: Get user by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "User ID (Axum route: /scim/v2/Users/:id)"
+      responses:
+        "200":
+          description: User details
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      operationId: scimReplaceUser
+      tags: [scim]
+      summary: Replace user (full update)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/ScimUser"
+      responses:
+        "200":
+          description: User replaced
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: scimPatchUser
+      tags: [scim]
+      summary: Update user (partial, SCIM PATCH)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/ScimPatchOp"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: scimDeleteUser
+      tags: [scim]
+      summary: Deactivate user via SCIM
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: User deactivated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /scim/v2/Groups:
+    get:
+      operationId: scimListGroups
+      tags: [scim]
+      summary: List groups
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: SCIM filter expression
+        - name: startIndex
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: count
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Group list
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: scimCreateGroup
+      tags: [scim]
+      summary: Create a group via SCIM
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/ScimGroup"
+      responses:
+        "201":
+          description: Group created
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimGroup"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /scim/v2/Groups/{id}:
+    get:
+      operationId: scimGetGroup
+      tags: [scim]
+      summary: Get group by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "Group ID (Axum route: /scim/v2/Groups/:id)"
+      responses:
+        "200":
+          description: Group details
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimGroup"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      operationId: scimReplaceGroup
+      tags: [scim]
+      summary: Replace group (full update)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/ScimGroup"
+      responses:
+        "200":
+          description: Group replaced
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimGroup"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: scimPatchGroup
+      tags: [scim]
+      summary: Update group (partial, SCIM PATCH)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/ScimPatchOp"
+      responses:
+        "200":
+          description: Group updated
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimGroup"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: scimDeleteGroup
+      tags: [scim]
+      summary: Delete group via SCIM
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Group deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /scim/v2/Bulk:
+    post:
+      operationId: scimBulk
+      tags: [scim]
+      summary: Bulk operations (RFC 7644 Section 3.7)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: "#/components/schemas/ScimBulkRequest"
+      responses:
+        "200":
+          description: Bulk operation results
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimBulkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          description: Payload too large (exceeds maxOperations or maxPayloadSize)
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /scim/v2/ServiceProviderConfig:
+    get:
+      operationId: scimGetServiceProviderConfig
+      tags: [scim]
+      summary: SCIM service provider configuration
+      security: []
+      responses:
+        "200":
+          description: Service provider configuration
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimServiceProviderConfig"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /scim/v2/Schemas:
+    get:
+      operationId: scimGetSchemas
+      tags: [scim]
+      summary: SCIM schema definitions
+      security: []
+      responses:
+        "200":
+          description: Schema list
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimListResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /scim/v2/ResourceTypes:
+    get:
+      operationId: scimGetResourceTypes
+      tags: [scim]
+      summary: SCIM resource type definitions
+      security: []
+      responses:
+        "200":
+          description: Resource type list
+          content:
+            application/scim+json:
+              schema:
+                $ref: "#/components/schemas/ScimListResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── API Keys ─────────────────────────────────────────────────────
+  /v1/api-keys:
+    post:
+      operationId: createApiKey
+      tags: [api-keys]
+      summary: Generate a new API key
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyCreateRequest"
+      responses:
+        "201":
+          description: API key created (key value only returned here)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listApiKeys
+      tags: [api-keys]
+      summary: List API keys (metadata only, not the key value)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: API key list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/api-keys/{id}:
+    get:
+      operationId: getApiKey
+      tags: [api-keys]
+      summary: Get API key metadata
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "API key ID (Axum route: /v1/api-keys/:id)"
+      responses:
+        "200":
+          description: API key metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyMetadata"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: revokeApiKey
+      tags: [api-keys]
+      summary: Revoke an API key
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: API key revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: updateApiKey
+      tags: [api-keys]
+      summary: Update API key name or scopes
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyUpdateRequest"
+      responses:
+        "200":
+          description: API key updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyMetadata"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Audit Log Forwarding ─────────────────────────────────────────
+  /v1/audit-log/forwarding:
+    get:
+      operationId: getAuditForwardingConfig
+      tags: [audit-forwarding]
+      summary: Get audit log forwarding configuration
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Forwarding configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditForwardingConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      operationId: updateAuditForwardingConfig
+      tags: [audit-forwarding]
+      summary: Create or update audit log forwarding configuration
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditForwardingConfig"
+      responses:
+        "200":
+          description: Forwarding configuration saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditForwardingConfig"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deleteAuditForwardingConfig
+      tags: [audit-forwarding]
+      summary: Disable and remove audit log forwarding
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Forwarding disabled and configuration removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/audit-log/forwarding/test:
+    post:
+      operationId: testAuditForwarding
+      tags: [audit-forwarding]
+      summary: Send a test event to verify forwarding configuration
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditForwardingTestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/audit-log/forwarding/status:
+    get:
+      operationId: getAuditForwardingStatus
+      tags: [audit-forwarding]
+      summary: Get forwarding health and delivery statistics
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Forwarding status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditForwardingStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
