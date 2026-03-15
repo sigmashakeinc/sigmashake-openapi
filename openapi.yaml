@@ -3238,3 +3238,228 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
+
+  # ── Auth Security ──────────────────────────────────────────
+  /auth/totp/status:
+    get:
+      operationId: getTotpStatus
+      tags: [auth-security]
+      summary: Check if 2FA is enabled
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: TOTP status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/totp/setup:
+    post:
+      operationId: setupTotp
+      tags: [auth-security]
+      summary: Begin TOTP enrollment
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: TOTP setup details with QR code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpSetupResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: TOTP already enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/totp/confirm-setup:
+    post:
+      operationId: confirmTotpSetup
+      tags: [auth-security]
+      summary: Confirm TOTP with first code, receive recovery codes
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpConfirmRequest"
+      responses:
+        "200":
+          description: TOTP confirmed, recovery codes returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpConfirmResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/totp/disable:
+    post:
+      operationId: disableTotp
+      tags: [auth-security]
+      summary: Disable 2FA (requires valid code)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpCodeRequest"
+      responses:
+        "204":
+          description: TOTP disabled
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/totp/verify:
+    post:
+      operationId: verifyTotp
+      tags: [auth-security]
+      summary: Verify TOTP code during login challenge
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpCodeRequest"
+      responses:
+        "204":
+          description: TOTP code valid
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/email-verify/send:
+    post:
+      operationId: sendEmailVerification
+      tags: [auth-security]
+      summary: Send verification email
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailVerifySendRequest"
+      responses:
+        "202":
+          description: Verification email queued
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/email-verify/confirm:
+    post:
+      operationId: confirmEmailVerification
+      tags: [auth-security]
+      summary: Confirm email with token
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailVerifyConfirmRequest"
+      responses:
+        "204":
+          description: Email verified
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/recovery-codes/verify:
+    post:
+      operationId: verifyRecoveryCode
+      tags: [auth-security]
+      summary: Use a recovery code during login challenge
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecoveryCodeRequest"
+      responses:
+        "204":
+          description: Recovery code accepted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/recovery-codes/generate:
+    post:
+      operationId: generateRecoveryCodes
+      tags: [auth-security]
+      summary: Regenerate all recovery codes (invalidates old)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: New recovery codes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryCodesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /account/security:
+    get:
+      operationId: getSecurityStatus
+      tags: [auth-security]
+      summary: Security status overview
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Account security status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
