@@ -69,6 +69,8 @@ tags:
     description: DB Server cluster management
   - name: db-tenant
     description: DB Server tenant data management
+  - name: auth-security
+    description: User authentication security (2FA/TOTP, email verification, recovery codes)
 
 security:
   - BearerAuth: []
