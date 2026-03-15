@@ -69,6 +69,10 @@ tags:
     description: DB Server cluster management
   - name: db-tenant
     description: DB Server tenant data management
+  - name: watchdog
+    description: Watchdog monitoring, status page, and health check history
+  - name: webhook-dlq
+    description: Webhook dead letter queue management
   - name: auth-security
     description: User authentication security (2FA/TOTP, email verification, recovery codes)
   - name: saml
