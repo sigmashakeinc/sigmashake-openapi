@@ -1,5 +1,7 @@
 
-# Claude Code runtime artifacts
-.claude/worktrees/
-.claude/perf.log
+.claude/
 .claude/agent-locks.*
+# Claude Code runtime artifacts
+.claude/perf.log
+.claude/worktrees/
+.well-known/
