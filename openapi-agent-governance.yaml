@@ -1,0 +1,436 @@
+openapi: 3.0.3
+info:
+  title: SigmaShake Agent Governance API
+  version: 1.0.0
+  description: |
+    Agent governance endpoints for policy management, compliance reporting,
+    hook integrity verification, and memory pinning.
+  contact:
+    name: SigmaShake Engineering
+    url: https://sigmashake.com
+  license:
+    name: Proprietary
+    url: https://sigmashake.com/license
+
+servers:
+  - url: https://api.sigmashake.com
+    description: Production
+  - url: https://staging-api.sigmashake.com
+    description: Staging
+
+tags:
+  - name: agent-governance
+    description: Agent governance policy, compliance, hook health, and memory pinning
+
+security:
+  - BearerAuth: []
+
+paths:
+  /v1/agent/policy:
+    get:
+      operationId: getPolicy
+      summary: Get current policy document
+      description: Returns the current PolicyDocument governing this agent.
+      tags:
+        - agent-governance
+      responses:
+        "200":
+          description: Current policy document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agent/policy/sync:
+    post:
+      operationId: syncPolicy
+      summary: Trigger policy re-sync
+      description: Triggers a policy re-sync from the fleet server and returns the updated PolicyDocument.
+      tags:
+        - agent-governance
+      responses:
+        "200":
+          description: Updated policy document after re-sync
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agent/compliance:
+    get:
+      operationId: getCompliance
+      summary: Get compliance report
+      description: Returns a ComplianceReport aggregated from all governance modules.
+      tags:
+        - agent-governance
+      responses:
+        "200":
+          description: Aggregated compliance report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agent/hooks/health:
+    get:
+      operationId: getHookHealth
+      summary: Get hook health report
+      description: Returns a HookHealthReport with per-hook SHA256 integrity check results.
+      tags:
+        - agent-governance
+      responses:
+        "200":
+          description: Hook health report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HookHealthReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agent/memory/pinned:
+    get:
+      operationId: listPinnedMemories
+      summary: List pinned memories
+      description: Returns the list of all currently pinned memory files.
+      tags:
+        - agent-governance
+      responses:
+        "200":
+          description: List of pinned memories
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - pins
+                properties:
+                  pins:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MemoryPin"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agent/memory/pin:
+    post:
+      operationId: pinMemory
+      summary: Pin a memory file
+      description: Pins a memory file by name and path. Returns the created MemoryPin.
+      tags:
+        - agent-governance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - path
+              properties:
+                name:
+                  type: string
+                  description: Unique name for the pinned memory
+                path:
+                  type: string
+                  description: File path of the memory to pin
+      responses:
+        "201":
+          description: Memory pinned successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryPin"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agent/memory/pin/{name}:
+    delete:
+      operationId: unpinMemory
+      summary: Unpin a memory by name
+      description: Removes a pinned memory by its unique name.
+      tags:
+        - agent-governance
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Name of the pinned memory to remove
+      responses:
+        "204":
+          description: Memory unpinned successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token. Claims include: sub, roles, exp, iat, iss, tenant_id, tier.
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+    PolicyDocument:
+      type: object
+      required:
+        - version
+        - updated_at
+        - hooks
+        - memory_pins
+        - deny_patterns
+        - compliance_rules
+      properties:
+        version:
+          type: string
+          description: Semantic version of the policy document
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp of last policy update
+        hooks:
+          type: array
+          items:
+            $ref: "#/components/schemas/HookRequirement"
+          description: Required hooks and their expected integrity hashes
+        memory_pins:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryPin"
+          description: Memory files that must remain pinned
+        deny_patterns:
+          type: array
+          items:
+            $ref: "#/components/schemas/DenyPattern"
+          description: Patterns that must be denied/blocked
+        compliance_rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceRule"
+          description: Rules evaluated during compliance checks
+
+    HookRequirement:
+      type: object
+      required:
+        - name
+        - sha256
+        - event
+      properties:
+        name:
+          type: string
+          description: Hook script name
+        sha256:
+          type: string
+          description: Expected SHA256 hash of the hook script
+        event:
+          type: string
+          enum:
+            - PreToolUse
+            - PostToolUse
+            - SessionStart
+            - SessionEnd
+          description: Event that triggers this hook
+        matcher:
+          type: string
+          nullable: true
+          description: Optional tool-name matcher for PreToolUse/PostToolUse hooks
+
+    MemoryPin:
+      type: object
+      required:
+        - name
+        - path
+        - content_sha256
+        - pinned_at
+      properties:
+        name:
+          type: string
+          description: Unique name for the pinned memory
+        path:
+          type: string
+          description: File path of the pinned memory
+        content_sha256:
+          type: string
+          description: SHA256 hash of the memory file contents
+        pinned_at:
+          type: string
+          format: date-time
+          description: Timestamp when the memory was pinned
+
+    DenyPattern:
+      type: object
+      required:
+        - pattern
+        - scope
+      properties:
+        pattern:
+          type: string
+          description: Pattern string to match against
+        scope:
+          type: string
+          enum:
+            - command
+            - file_path
+            - tool_name
+          description: Scope in which the deny pattern is evaluated
+
+    ComplianceRule:
+      type: object
+      required:
+        - id
+        - description
+        - check_type
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the compliance rule
+        description:
+          type: string
+          description: Human-readable description of what this rule checks
+        check_type:
+          type: string
+          enum:
+            - hook_present
+            - hook_integrity
+            - memory_pinned
+            - deny_enforced
+          description: Type of compliance check to perform
+
+    ComplianceResult:
+      type: object
+      required:
+        - rule_id
+        - passed
+        - message
+      properties:
+        rule_id:
+          type: string
+          description: ID of the compliance rule that was evaluated
+        passed:
+          type: boolean
+          description: Whether the rule passed
+        message:
+          type: string
+          description: Human-readable result message
+
+    ComplianceReport:
+      type: object
+      required:
+        - timestamp
+        - results
+        - overall_pass
+        - hook_health
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the compliance check
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceResult"
+          description: Individual compliance check results
+        overall_pass:
+          type: boolean
+          description: True if all compliance rules passed
+        hook_health:
+          $ref: "#/components/schemas/HookHealthReport"
+
+    HookHealthReport:
+      type: object
+      required:
+        - checked_at
+        - hooks
+      properties:
+        checked_at:
+          type: string
+          format: date-time
+          description: Timestamp of the health check
+        hooks:
+          type: array
+          items:
+            $ref: "#/components/schemas/HookHealthEntry"
+          description: Per-hook health check results
+
+    HookHealthEntry:
+      type: object
+      required:
+        - name
+        - expected_sha256
+        - status
+      properties:
+        name:
+          type: string
+          description: Hook script name
+        expected_sha256:
+          type: string
+          description: Expected SHA256 hash from policy
+        actual_sha256:
+          type: string
+          nullable: true
+          description: Actual SHA256 hash found on disk (null if missing)
+        status:
+          type: string
+          enum:
+            - ok
+            - modified
+            - missing
+            - extra
+          description: Integrity status of the hook
