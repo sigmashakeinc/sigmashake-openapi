@@ -1,5 +1,7 @@
 {
-  "model": "opusplan",
+  "model": {
+    "name": "auto"
+  },
   "permissions": {
     "defaultMode": "acceptEdits"
   },
@@ -10,7 +12,7 @@
           {
             "type": "command",
             "command": ".gemini/hooks/session-end-handoff.sh",
-            "timeout": 10
+            "timeout": 10000
           }
         ]
       }
@@ -21,24 +23,24 @@
           {
             "type": "command",
             "command": ".gemini/hooks/session-sync.sh",
-            "timeout": 30
+            "timeout": 30000
           },
           {
             "type": "command",
             "command": ".gemini/hooks/target-cleanup.sh",
-            "timeout": 60
+            "timeout": 60000
           }
         ]
       }
     ],
-    "PreToolUse": [
+    "BeforeTool": [
       {
         "matcher": "Read",
         "hooks": [
           {
             "type": "command",
             "command": ".gemini/hooks/pre-read-guard.sh",
-            "timeout": 5
+            "timeout": 5000
           }
         ]
       },
@@ -48,7 +50,7 @@
           {
             "type": "command",
             "command": ".gemini/hooks/block-large-writes.sh",
-            "timeout": 5
+            "timeout": 5000
           }
         ]
       },
@@ -58,7 +60,7 @@
           {
             "type": "command",
             "command": ".gemini/hooks/task-lock.sh",
-            "timeout": 5
+            "timeout": 5000
           }
         ]
       },
@@ -68,7 +70,7 @@
           {
             "type": "command",
             "command": ".gemini/hooks/protect-memory.sh",
-            "timeout": 5
+            "timeout": 5000
           }
         ]
       },
@@ -78,7 +80,7 @@
           {
             "type": "command",
             "command": ".gemini/hooks/enforce-lsp.sh",
-            "timeout": 5
+            "timeout": 5000
           }
         ]
       },
@@ -88,7 +90,7 @@
           {
             "type": "command",
             "command": ".gemini/hooks/block-mcp.sh",
-            "timeout": 5
+            "timeout": 5000
           }
         ]
       },
@@ -98,24 +100,24 @@
           {
             "type": "command",
             "command": ".gemini/hooks/block-direct-deploy.sh",
-            "timeout": 5
+            "timeout": 5000
           }
         ]
       }
     ],
-    "PostToolUse": [
+    "AfterTool": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
             "command": ".gemini/hooks/post-edit-dispatch.sh",
-            "timeout": 30
+            "timeout": 30000
           },
           {
             "type": "command",
             "command": ".gemini/hooks/context-pressure.sh",
-            "timeout": 5
+            "timeout": 5000
           }
         ]
       },
@@ -125,19 +127,19 @@
           {
             "type": "command",
             "command": ".gemini/hooks/knowledge-capture.sh",
-            "timeout": 10,
+            "timeout": 10000,
             "async": true
           }
         ]
       }
     ],
-    "PreCompact": [
+    "PreCompress": [
       {
         "hooks": [
           {
             "type": "command",
             "command": ".gemini/hooks/pre-compact-state.sh",
-            "timeout": 15
+            "timeout": 15000
           }
         ]
       }
