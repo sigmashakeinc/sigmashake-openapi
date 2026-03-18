@@ -5,3 +5,6 @@
 .claude/perf.log
 .claude/worktrees/
 .well-known/
+
+# Gemini CLI runtime artifacts
+.gemini/
