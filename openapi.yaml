@@ -2380,7 +2380,7 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ── Agent API: Health & Status ──────────────────────────────
-  /health:
+  /v1/health:
     get:
       operationId: agentHealth
       tags: [agent-health]
@@ -4157,7 +4157,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /account/security:
+  /v1/account/security:
     get:
       operationId: getSecurityStatus
       tags: [auth-security]
