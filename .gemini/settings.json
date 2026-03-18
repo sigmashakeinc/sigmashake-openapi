@@ -1,4 +1,26 @@
 {
+  "general": {
+    "defaultApprovalMode": "plan",
+    "plan": {
+      "modelRouting": true
+    }
+  },
+  "modelConfigs": {
+    "customAliases": {
+      "pro": {
+        "extends": "gemini-3-pro-preview",
+        "modelConfig": {
+          "model": "gemini-3.1-pro-preview"
+        }
+      },
+      "flash": {
+        "extends": "gemini-3-flash-preview",
+        "modelConfig": {
+          "model": "gemini-3-flash-preview"
+        }
+      }
+    }
+  },
   "model": {
     "name": "auto"
   },
@@ -133,7 +155,7 @@
         ]
       }
     ],
-    "PreCompress": [
+    "PreCompact": [
       {
         "hooks": [
           {
