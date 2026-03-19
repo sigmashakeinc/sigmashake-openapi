@@ -245,6 +245,9 @@ components:
           type: string
           format: date-time
           description: Timestamp of last policy update
+        resource_limits:
+          $ref: "#/components/schemas/ResourceLimits"
+          description: Optional strict CPU/Memory budget bounds for the agent
         hooks:
           type: array
           items:
@@ -265,6 +268,17 @@ components:
           items:
             $ref: "#/components/schemas/ComplianceRule"
           description: Rules evaluated during compliance checks
+
+    ResourceLimits:
+      type: object
+      properties:
+        max_cpu_pct:
+          type: number
+          format: double
+          description: Maximum CPU usage percentage (1-100)
+        max_memory_mb:
+          type: integer
+          description: Maximum memory usage in Megabytes
 
     HookRequirement:
       type: object

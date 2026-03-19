@@ -8,3 +8,4 @@
 
 # Gemini CLI runtime artifacts
 .gemini/
+.env

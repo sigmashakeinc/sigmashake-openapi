@@ -1395,6 +1395,64 @@ components:
           type: string
           description: Opaque cursor for the next page. Null if no more results.
 
+    LiveQueryRequest:
+      type: object
+      required: [table]
+      properties:
+        table:
+          type: string
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/Filter"
+        projections:
+          type: array
+          items:
+            type: string
+        aggregates:
+          type: array
+          items:
+            $ref: "#/components/schemas/Aggregate"
+        group_by:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        time_range:
+          $ref: "#/components/schemas/TimeRange"
+        tenant_id:
+          type: string
+          format: uuid
+
+    LiveAggregateRequest:
+      type: object
+      required: [table, window_seconds]
+      properties:
+        table:
+          type: string
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/Filter"
+        aggregates:
+          type: array
+          items:
+            $ref: "#/components/schemas/Aggregate"
+        group_by:
+          type: array
+          items:
+            type: string
+        window_seconds:
+          type: integer
+          minimum: 1
+          maximum: 3600
+        tenant_id:
+          type: string
+          format: uuid
+
     VectorMetric:
       type: string
       enum: [cosine, dot_product, l2]
@@ -3805,6 +3863,101 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/stream/{table}/query:
+    get:
+      operationId: streamTableQuery
+      tags: [db-stream]
+      summary: Filtered SSE stream of table changes with projections
+      parameters:
+        - name: table
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: filters
+          in: query
+          description: JSON-encoded array of filter objects
+          schema:
+            type: string
+        - name: projections
+          in: query
+          description: Comma-separated column names for projection
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Filtered SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/query/live:
+    post:
+      operationId: liveQuery
+      tags: [db-stream]
+      summary: Live query - initial snapshot then real-time tail over SSE
+      description: |
+        Executes a query to return an initial snapshot, then subscribes to
+        the table's stream and forwards matching new inserts. The subscribe
+        happens before the snapshot query to guarantee no gap.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveQueryRequest"
+      responses:
+        "200":
+          description: SSE stream with snapshot and insert events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/query/live/aggregate:
+    post:
+      operationId: liveAggregate
+      tags: [db-stream]
+      summary: Windowed aggregation stream over SSE
+      description: |
+        Subscribes to a table's stream and emits aggregated results
+        for each tumbling time window (non-overlapping). Window duration
+        is configurable (1-3600 seconds).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveAggregateRequest"
+      responses:
+        "200":
+          description: SSE stream of window aggregate events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
 
