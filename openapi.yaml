@@ -2129,7 +2129,8 @@ components:
     # ── Audit Log Forwarding ──────────────────────────────────────
     AuditSinkType:
       type: string
-      enum: [webhook, s3, gcs]
+      enum: [webhook, s3, gcs, splunk, datadog]
+      description: The type of SIEM sink for audit forwarding.
 
     WebhookSinkConfig:
       type: object
@@ -2190,6 +2191,56 @@ components:
           type: boolean
           description: Use GCP Workload Identity Federation instead of service account key
 
+    SplunkHecSinkConfig:
+      type: object
+      required: [hec_url, hec_token]
+      properties:
+        hec_url:
+          type: string
+          description: Splunk HEC endpoint URL
+        hec_token:
+          type: string
+          description: Splunk HEC authentication token
+        index:
+          type: string
+          default: main
+        source:
+          type: string
+          default: sigmashake
+        sourcetype:
+          type: string
+          default: "sigmashake:audit"
+        batch_size:
+          type: integer
+          default: 100
+        flush_interval_secs:
+          type: integer
+          default: 10
+
+    DatadogSinkConfig:
+      type: object
+      required: [api_key]
+      properties:
+        api_key:
+          type: string
+          description: Datadog API key
+        site:
+          type: string
+          default: datadoghq.com
+          description: Datadog site (e.g. datadoghq.com, datadoghq.eu)
+        source:
+          type: string
+          default: sigmashake
+        service:
+          type: string
+          default: sigmashake-audit
+        batch_size:
+          type: integer
+          default: 100
+        flush_interval_secs:
+          type: integer
+          default: 10
+
     AuditSink:
       type: object
       required: [type, config]
@@ -2201,6 +2252,8 @@ components:
             - $ref: "#/components/schemas/WebhookSinkConfig"
             - $ref: "#/components/schemas/S3SinkConfig"
             - $ref: "#/components/schemas/GcsSinkConfig"
+            - $ref: "#/components/schemas/SplunkHecSinkConfig"
+            - $ref: "#/components/schemas/DatadogSinkConfig"
           discriminator:
             propertyName: type
 
