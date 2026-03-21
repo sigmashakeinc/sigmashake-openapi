@@ -13,10 +13,15 @@ Complete OpenAPI 3.1 specification for the SigmaShake AI-Native platform.
 | **Gateway** | Pre/post tool call interception and policy enforcement |
 | **DB Server** | Table management, columnar queries, vector search, clustering |
 
-## Files
+## Single Source of Truth
+
+`openapi.yaml` is the **canonical** spec for all SigmaShake platform APIs. The website
+(`sigmashake.com`) uses a **generated subset** that exposes only public-facing endpoints.
 
 ```
-openapi.yaml                    # Full OpenAPI 3.1 spec
+openapi.yaml                    # Canonical OpenAPI 3.1 spec (ALL endpoints)
+website-overlay.yaml            # Overlay config defining the website subset
+generate-website-spec.py        # Generates website spec from canonical + overlay
 schemas/                        # JSON Schema files for key types
   agent-identity-claims.json
   account.json
@@ -27,6 +32,17 @@ schemas/                        # JSON Schema files for key types
   error.json
 .well-known/sigmashake.json     # Agent discovery manifest
 ```
+
+### Generate the website spec
+
+```bash
+python3 generate-website-spec.py                      # stdout
+python3 generate-website-spec.py -o website.yaml      # write to file
+python3 generate-website-spec.py --check website.yaml # CI drift check (exit 1 if stale)
+```
+
+To add or remove website-visible endpoints, edit `website-overlay.yaml` — not the
+website spec directly.
 
 ## Usage
 

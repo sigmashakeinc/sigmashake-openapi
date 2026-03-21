@@ -1,0 +1,205 @@
+# Website OpenAPI Overlay
+#
+# Defines which canonical spec paths appear in the public-facing website spec.
+# Used by generate-website-spec.py to produce a subset of openapi.yaml.
+#
+# The website spec is a "getting started" API reference for external consumers.
+# It exposes only endpoints relevant to integrators, not all internal paths.
+
+# OpenAPI metadata overrides for the website spec
+openapi_version: "3.1.0"
+info:
+  title: SigmaShake API
+  version: 1.0.0
+  description: >
+    Enterprise AI agent infrastructure API. Evaluate agent actions against
+    security policies, manage governance rules, and query audit trails.
+  contact:
+    name: SigmaShake
+    url: https://sigmashake.com
+    email: hello@sigmashake.com
+
+server_url: https://api.sigmashake.com
+security_scheme: BearerAuth
+
+# Canonical paths to include in the website spec (verbatim from openapi.yaml)
+include_paths:
+  - /v1/scan            # Shield policy evaluation
+  - /v1/metrics/{service}  # Platform metrics
+  - /v1/a2a/discover    # A2A discovery (no auth)
+  - /v1/a2a/message     # A2A messaging (no auth)
+  - /v1/a2a/feed        # A2A feed posts (no auth)
+
+# Website-only endpoints — simplified views NOT in canonical spec.
+# These are convenience aliases for external consumers.
+website_only_paths:
+  /v1/policies:
+    get:
+      operationId: listPolicies
+      tags: [governance]
+      summary: List security policies for an agent
+      parameters:
+        - name: agent_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Policy list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Policy"
+
+  /v1/agents/{agent_id}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: Get agent status and metrics
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+
+  /v1/audit:
+    get:
+      operationId: queryAudit
+      tags: [audit]
+      summary: Query the audit trail
+      parameters:
+        - name: agent_id
+          in: query
+          schema:
+            type: string
+        - name: start
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditResponse"
+
+# Website-only schemas — used by website_only_paths above
+website_only_schemas:
+  Policy:
+    type: object
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      rules:
+        type: array
+        items:
+          type: object
+          properties:
+            action:
+              type: string
+              enum: [allow, deny, audit]
+            tool:
+              type: string
+            condition:
+              type: string
+
+  Agent:
+    type: object
+    properties:
+      agent_id:
+        type: string
+      status:
+        type: string
+        enum: [active, inactive, suspended]
+      last_action:
+        type: string
+        format: date-time
+      policy_ids:
+        type: array
+        items:
+          type: string
+      metrics:
+        type: object
+        properties:
+          actions_today:
+            type: integer
+          blocked_today:
+            type: integer
+          avg_eval_ms:
+            type: number
+
+  AuditResponse:
+    type: object
+    properties:
+      events:
+        type: array
+        items:
+          $ref: "#/components/schemas/AuditEvent"
+      total:
+        type: integer
+      page:
+        type: integer
+
+  AuditEvent:
+    type: object
+    properties:
+      id:
+        type: string
+      timestamp:
+        type: string
+        format: date-time
+      agent_id:
+        type: string
+      action:
+        type: string
+      tool:
+        type: string
+      result:
+        type: string
+        enum: [allowed, blocked, audited]
+      policy_id:
+        type: string
+      evaluation_ms:
+        type: number
+
+  Metrics:
+    type: object
+    properties:
+      evaluations:
+        type: integer
+      blocked:
+        type: integer
+      avg_latency_ms:
+        type: number
+      active_agents:
+        type: integer
+      policy_violations:
+        type: integer

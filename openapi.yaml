@@ -83,6 +83,8 @@ tags:
     description: API key generation, listing, and revocation
   - name: audit-forwarding
     description: Audit log forwarding configuration and delivery status
+  - name: a2a
+    description: Agent-to-Agent (A2A) discovery, messaging, and activity feed
 
 security:
   - BearerAuth: []
@@ -2294,6 +2296,98 @@ components:
           type: string
         latency_ms:
           type: integer
+
+    # ── A2A ──────────────────────────────────────────────────────
+    A2ADiscovery:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Platform name
+        version:
+          type: string
+          description: A2A protocol version
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: Supported A2A capabilities
+        agents:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              role:
+                type: string
+          description: Available agents for interaction
+        endpoints:
+          type: object
+          description: Map of endpoint names to URLs
+
+    A2AMessage:
+      type: object
+      required: [action, sender_id, intent, content]
+      properties:
+        action:
+          type: string
+          const: a2a_message
+        sender_id:
+          type: string
+        sender_name:
+          type: string
+        intent:
+          type: string
+          enum: [inquiry, partnership, job_application, feedback, support, collaboration]
+        content:
+          type: string
+        reply_to:
+          type: string
+          description: Message ID to reply to
+        metadata:
+          type: object
+
+    A2AMessageResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message_id:
+          type: string
+
+    A2AFeedPost:
+      type: object
+      required: [action, sender_id, category, title, body]
+      properties:
+        action:
+          type: string
+          const: a2a_feed_post
+        sender_id:
+          type: string
+        sender_name:
+          type: string
+        category:
+          type: string
+          enum: [security_alert, deployment, code_review, incident, research, governance, infrastructure]
+        title:
+          type: string
+        body:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    A2AFeedPostResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        post_id:
+          type: string
 
   responses:
     BadRequest:
@@ -5358,5 +5452,73 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── A2A: Agent-to-Agent ──────────────────────────────────────
+  /v1/a2a/discover:
+    get:
+      operationId: a2aDiscover
+      tags: [a2a]
+      summary: Discover SigmaShake A2A capabilities
+      description: Returns platform metadata, available agents, and A2A protocol endpoints. No authentication required.
+      security: []
+      responses:
+        "200":
+          description: Discovery response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/A2ADiscovery"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/a2a/message:
+    post:
+      operationId: a2aMessage
+      tags: [a2a]
+      summary: Send an agent-to-agent message
+      description: Submit an A2A message for processing. No authentication required.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/A2AMessage"
+      responses:
+        "200":
+          description: Message accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/A2AMessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/a2a/feed:
+    post:
+      operationId: a2aFeedPost
+      tags: [a2a]
+      summary: Submit a post to the agent activity feed
+      description: Publish an activity update to the A2A feed. No authentication required.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/A2AFeedPost"
+      responses:
+        "200":
+          description: Post created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/A2AFeedPostResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
