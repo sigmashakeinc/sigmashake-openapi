@@ -12,7 +12,10 @@
 
 ## Rust Conventions
 - Axum 0.8+ uses `{param}` syntax for path parameters (e.g., `/{id}`, `/{name}`). The old `:param` syntax is no longer valid.
-- Always run `cargo clippy` and `cargo fmt` after changes before claiming success
+- **Use `cargo check` for immediate feedback** — rely on `cargo check -p <crate>` while actively developing. Reserve `cargo clippy` for pre-commit checks or final verification. `cargo check` is significantly faster than `cargo clippy` and catches compilation errors just as well.
+- **Target specific crates** — always use `cargo check -p <crate>` or `cargo clippy -p <crate>` rather than checking the entire workspace. This avoids recompiling unrelated crates.
+- **Leverage sccache** — `sccache` is configured globally and caches intermediate build artifacts. This significantly reduces rebuild times when switching branches or after `cargo clean`. Never disable or bypass it.
+- Always run `cargo clippy -p <crate>` and `cargo fmt` as a final pre-commit check before claiming success
 - When fixing clippy warnings, scope fixes to the crates you changed — don't fix unrelated crates unless asked
 - Never recommend replacing `cargo test` with custom tooling without benchmarking first
 - **NEVER claim build/test success without running `cargo build -p <crate>` and `cargo test -p <crate>` and confirming zero errors.** Paste the final test summary line as proof.
@@ -24,6 +27,28 @@
 - `block-direct-deploy.sh` PreToolUse hook (blocks Bash command)
 
 Use `sigmashake-ci deploy <target>` or the `/deploy` skill instead.
+
+### `sigmashake-ci deploy` — CRITICAL NOTES
+
+1. **MUST run from workspace root** (`repos/sigmashake_inc/`). The tool uses `current_dir()` as `workspace_root` to locate `crates/<name>/wrangler.toml`. Running from a subdirectory (e.g. `crates/loco-app/`) doubles the path and fails with `can't cd to .../crates/loco-app/crates/loco-app`.
+2. **Credentials are already configured** — Cloudflare API token and account ID are set in the environment. Do NOT assume deploy is blocked on missing credentials. Just run the command.
+3. **Pre-warm builds after `cargo clean`** — WASM compilation takes >120s cold. Run `cargo check --workspace` first to populate the cache, or the deploy will timeout.
+4. **`sigmashake-db` requires unsafe code** — The `d1_engine.rs` `AssertSendFuture` needs `unsafe` for wasm32 JS handles. Do NOT add `#![forbid(unsafe_code)]` to this crate. It uses `// gov:allow[forbid-unsafe-code]` and `// gov:allow[no-unsafe]` annotations instead.
+5. **`wasm-opt` is disabled** for loco-app (`[package.metadata.wasm-pack.profile.release] wasm-opt = false`) due to version incompatibility with saturating float ops.
+6. **NEVER use `cargo run` for sigmashake-ci in hooks or scripts** — `cargo run` recompiles on every invocation, adding minutes to every push. Always use the installed binary (`sigmashake-ci verify`, not `cargo run -p sigmashake-ci -- verify`). Pre-push hooks must run from the workspace root (`repos/sigmashake_inc/`), never from a subdirectory.
+
+## DOWNSTREAM RELEASES
+
+To release `sigmashake-cli` binaries and packages to downstream channels (Homebrew, Winget), the automated pipeline modifies local files in submodules. Agents **must** then commit and push these changes:
+1. Ensure the `sigmashake-ci release` pipeline ran.
+2. Run `./push-downstream.sh <tag>` (e.g. `./push-downstream.sh v1.2.3`) from the `repos/sigmashake_inc/` directory to automatically commit and push to `homebrew-sigmashake` and `winget-pkgs`.
+
+## INTERNAL ACCESS & SSO (SOC2 Compliance)
+
+**Mandatory 2FA/SSO:** All internal SigmaShake developers MUST use Okta for SSO with mandatory MFA (WebAuthn or TOTP).
+- **Session Duration:** Maximum session duration for administrative access is 12 hours.
+- **Offboarding:** Access MUST be revoked within 4 hours of employee termination.
+- **Audit Logs:** All SSO login events are streamed to `sigmashake-db` for SOC2 audit compliance.
 
 ## Workflow Discipline
 - When debugging deployment/infra issues, check infrastructure first (`dig`, `curl -I`, DNS, hosting config) before changing application code.
@@ -54,12 +79,11 @@ Always use these tools to minimize context bloat and maximize efficiency:
 | **Repomix** | `ss-ingest-xml <path>`| Secure, structured XML ingestion. Preferred for full-crate deep dives. |
 | **Checkpoint**| `ss-checkpoint "<sum>"`| **Mandatory.** Saves session trajectory to `STATE.md`. Run BEFORE every `/handoff` or when history gets long. |
 
-## CONTEXT ENGINEERING
-
-- **Summaries first:** Read `STATE.md`, `CLAUDE.md`, `ARCHITECTURE.md`, `repo_summary/` BEFORE source code.
-- **Context slice:** NEVER read/rewrite whole files. Target exact struct/trait/fn/section.
-- **Checkpointing:** Always maintain `STATE.md`. It is the "Off-Chain Memory" for the agent. If the context window is full, summarize the current work into a checkpoint, then ask the user to "reset context" or clear history.
-- **Structural Mapping:** Use `ss-search` to find symbols before reading files. Use `ast-grep` for structural changes.
+## CONTEXT ENGINEERING & EFFICIENCY
+- **Summaries first:** Read `STATE.md`, `GEMINI.md`, `ARCHITECTURE.md`, `repo_summary/` BEFORE source code.
+- **Symbol lookup:** NEVER use `Grep` or `Glob` for symbol lookups (functions, structs, traits). Use `ss exports <crate>`, `ss search <pattern>`, or `ast-grep` (`sg`) instead. `Grep` on source code is blocked by `enforce-lsp` and wastes tokens.
+- **Context slice:** NEVER read/rewrite whole files. Target exact sections.
+- **Worktree Isolation:** **MANDATORY** for parallel agent sessions. If `ss bottleneck` or `agent-worktree.sh list` shows other active sessions, you MUST create a worktree (`./agent-worktree.sh create`) to avoid build lock contention and file edit collisions. Failure to use worktrees causes 30s+ build delays.
 
 - **Architect → Skeleton → Fill:** (1) architecture + signatures only, (2) compileable skeletons with `todo!()`, (3) implement ONE fn/module per turn.
 - **No MCP. Ever.** CLI tools and lean wrappers only.
