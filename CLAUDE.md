@@ -88,9 +88,7 @@ AI-Native company. Every service, tool, and pipeline is built by and for AI agen
 
 **10-Second Rule:** Any process >10s MUST be optimized, parallelized, or made async.
 
-**Opus-Plan → Sonnet-Execute:** Sessions use `opusplan` model — Opus 4.6 for planning (architecture, detailed instructions), Sonnet 4.6 for execution (fast code generation). Sessions start in plan mode. After plan approval (`Shift+Tab`), model auto-switches to Sonnet for 3-4x faster output.
-
-**Token Optimization:** Prefer `Read` tool over dumping entire file contents. Use `--quiet` when you don't need diagnostic output, but **never suppress output when debugging** — full compiler errors, test failures, and stack traces are essential for diagnosing issues.
+**Token Optimization:** Prefer `Read` tool over dumping entire file contents. Show full compiler output, test results, and stack traces — never suppress diagnostic output with flags like `--quiet`.
 
 ## TOKEN SERVICES (Mandatory)
 
@@ -124,7 +122,7 @@ Always use these tools to minimize context bloat and maximize efficiency:
 4. **Commit messages: 1 line only** — no body, no bullet lists
 5. **Board summaries: counts only** — one line per workstream; no full task tables in output
 6. **Checkpoint before handoff** — `pre-compact-state.sh` hook saves trajectory; also run `ss-checkpoint` manually before `/handoff`
-7. **Show full output when debugging** — never suppress compiler errors, test failures, or diagnostic output. Use `--quiet` only for commands where you don't need the output.
+7. **Show full output** — never suppress compiler errors, test failures, or diagnostic output.
 
 ## NO SUPPRESSING WARNINGS
 
