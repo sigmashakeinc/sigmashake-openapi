@@ -70,6 +70,49 @@ openapi-generator-cli generate -i openapi.yaml -g rust -o client/
 openapi-generator-cli generate -i openapi.yaml -g typescript-fetch -o client-ts/
 ```
 
+## SDK Drift Detection
+
+The SDKs (Python and Node) must stay in sync with this spec. A drift detector
+compares the spec schemas against the SDK model files and reports any missing
+schemas or fields.
+
+```bash
+# Validate both SDKs
+./validate-sdks.sh
+
+# Validate one SDK
+./validate-sdks.sh --python
+./validate-sdks.sh --node
+
+# JSON output for CI pipelines
+./validate-sdks.sh --json
+
+# Run unit tests for the drift detector
+cd scripts && python3 -m pytest -v
+```
+
+Exit code is 0 when SDKs match the spec, 1 when drift is detected.
+
+### Files
+
+```
+scripts/
+  drift_detector.py          # Core library: schema extraction + comparison
+  validate_python_sdk.py     # CLI: validate Python SDK models
+  validate_node_sdk.py       # CLI: validate Node SDK types
+  test_drift_detector.py     # Unit tests for drift_detector
+  test_validate_cli.py       # Integration tests for CLI scripts
+validate-sdks.sh             # Top-level entry point for CI
+```
+
+### Workflow
+
+1. Edit `openapi.yaml` (the source of truth)
+2. Run `./validate-sdks.sh` to see what changed
+3. Update SDK model files to match
+4. Re-run `./validate-sdks.sh` to confirm zero drift
+5. CI runs `./validate-sdks.sh` on every commit to block regressions
+
 ## Authentication
 
 All protected endpoints require a JWT Bearer token:
