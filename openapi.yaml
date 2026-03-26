@@ -2674,6 +2674,7 @@ paths:
   /v1/documents:
     post:
       operationId: mutateDocument
+      x-status: unimplemented
       tags: [agent-documents]
       summary: Create or mutate a document
       requestBody:
