@@ -2704,6 +2704,7 @@ paths:
   /v1/documents/{id}:
     get:
       operationId: getDocument
+      x-status: unimplemented
       tags: [agent-documents]
       summary: Retrieve a document by ID
       parameters:
