@@ -10,9 +10,33 @@
 - If governance rules or deny.toml cause false positives, use targeted `gov:allow` annotations rather than broad workarounds.
 - Never ban transitive dependencies (e.g., libc) in deny.toml — only ban direct dependencies.
 
+## COMPILED HOOK SYSTEM (Mandatory)
+
+All hooks use compiled Rust binaries for <10ms latency (vs 150-300ms bash). Binaries auto-installed at `~/.cargo/bin/`. Bash fallback if binary missing.
+
+| Hook | Binary | Subcommand | Replaces |
+|------|--------|------------|----------|
+| post-edit-dispatch | `ss-hook-dispatch` | `post-edit` | 363-line bash (audit, lint, security, auto-commit) |
+| pre-read-guard | `ss-hook-dispatch` | `pre-read` | 96-line bash (block generated files, summaries-first) |
+| enforce-lsp | `ss-hook-dispatch` | `enforce-lsp` | 72-line bash (redirect symbol lookups to LSP) |
+| task-lock | `ss-lock-manager` | *(stdin)* | 136-line bash (flock + jq agent coordination) |
+
+**Context optimization:** Run `ss-context-lint --minify` to deduplicate overlapping CLAUDE.md/GEMINI.md instructions (79% token reduction). Use `ss-context-lint --verbose` to audit context bloat.
+
+**Install/update binaries** (from `repos/sigmashake_inc/`):
+```bash
+cargo install --path tools/ss-hook-dispatch
+cargo install --path tools/ss-context-lint
+cargo install --path tools/ss-lock-manager
+```
+
+See `ARCHITECTURE-AGENT-LOOP.md` in sigmashake_inc for full architecture details.
+
 ## Rust Conventions
 - Axum 0.8+ uses `{param}` syntax for path parameters (e.g., `/{id}`, `/{name}`). The old `:param` syntax is no longer valid.
-- **Use `cargo check` for immediate feedback** — rely on `cargo check -p <crate>` while actively developing. Reserve `cargo clippy` for pre-commit checks or final verification. `cargo check` is significantly faster than `cargo clippy` and catches compilation errors just as well.
+- **Use `ss-fast-check` for instant feedback (<100ms)** — prefer `ss-fast-check <file>` over `cargo check` for loco-app files. It queries rust-analyzer LSP for diagnostics without spawning cargo. Falls back to `cargo check` if rust-analyzer isn't running. For non-loco-app crates, use `cargo check -p <crate>`.
+- **Use `ss-fast-test` for instant test execution (<100ms cached)** — prefer `ss-fast-test run <test>` over `cargo test` for loco-app tests when the daemon is running (`ss-test-daemon start`). `test-loco.sh` auto-delegates when available.
+- **`ss-fast-watch` auto-starts on SessionStart** — speculatively pre-computes check/test results on file save. Use `ss-fast-watch query <file>` for instant cached results.
 - **Target specific crates** — always use `cargo check -p <crate>` or `cargo clippy -p <crate>` rather than checking the entire workspace. This avoids recompiling unrelated crates.
 - **Leverage sccache** — `sccache` is configured globally and caches intermediate build artifacts. This significantly reduces rebuild times when switching branches or after `cargo clean`. Never disable or bypass it.
 - Always run `cargo clippy -p <crate>` and `cargo fmt` as a final pre-commit check before claiming success
@@ -74,14 +98,18 @@ Always use these tools to minimize context bloat and maximize efficiency:
 
 | Tool | Command | Purpose |
 |------|---------|---------|
+| **Oracle** | `oracle <query>` | **DEFAULT for symbol lookups.** Pre-computed index of 4000+ public symbols. Use `oracle struct X`, `oracle fn Y`, `oracle crate Z`, `oracle deps Z`. Always use BEFORE grep/glob. |
+| **Context7** | `context7 search <q>` | Look up Rust crate docs from docs.rs. `context7 docs axum Router`, `context7 list` to see indexed crates. Use `/docs` skill. |
 | **QMD** | `ss-search "<q>"` | Local search/retrieval engine. Use instead of Grep for semantic or broad searches across the codebase. |
 | **GitIngest** | `ss-ingest <path>` | Ingest repository or directory into a single LLM-friendly text file for full-context understanding. |
 | **Repomix** | `ss-ingest-xml <path>`| Secure, structured XML ingestion. Preferred for full-crate deep dives. |
 | **Checkpoint**| `ss-checkpoint "<sum>"`| **Mandatory.** Saves session trajectory to `STATE.md`. Run BEFORE every `/handoff` or when history gets long. |
+| **ContextLint**| `ss-context-lint [--minify]` | Audit context bloat, deduplicate .md files, 79% token reduction. Use `--verbose` for per-file breakdown. |
 
 ## CONTEXT ENGINEERING & EFFICIENCY
-- **Summaries first:** Read `STATE.md`, `GEMINI.md`, `ARCHITECTURE.md`, `repo_summary/` BEFORE source code.
-- **Symbol lookup:** NEVER use `Grep` or `Glob` for symbol lookups (functions, structs, traits). Use `ss exports <crate>`, `ss search <pattern>`, or `ast-grep` (`sg`) instead. `Grep` on source code is blocked by `enforce-lsp` and wastes tokens.
+- **Summaries first:** Read `STATE.md`, `ARCHITECTURE.md`, `repo_summary/` BEFORE source code.
+- **Symbol lookup:** NEVER use `Grep` or `Glob` for symbol lookups (functions, structs, traits). Use **`oracle <query>`** first (instant, pre-indexed), then `ss exports <crate>`, `ss search <pattern>`, or `ast-grep` (`sg`). `Grep` on source code is blocked by `enforce-lsp` and wastes tokens.
+- **Crate docs:** Use **`context7 search <query>`** or **`/docs <crate> <query>`** to look up dependency API docs before reading source.
 - **Context slice:** NEVER read/rewrite whole files. Target exact sections.
 - **Worktree Isolation:** **MANDATORY** for parallel agent sessions. If `ss bottleneck` or `agent-worktree.sh list` shows other active sessions, you MUST create a worktree (`./agent-worktree.sh create`) to avoid build lock contention and file edit collisions. Failure to use worktrees causes 30s+ build delays.
 
@@ -90,12 +118,13 @@ Always use these tools to minimize context bloat and maximize efficiency:
 
 ## EFFICIENCY GUIDELINES
 
-1. **Use `ss exports <crate>`** for public API signatures instead of reading full source files
-2. **Sprint model routing** — `test`/`docs` scope tasks use `model: "haiku"`; all other scopes inherit sonnet from opusplan
-3. **Commit messages: 1 line only** — no body, no bullet lists
-4. **Board summaries: counts only** — one line per workstream; no full task tables in output
-5. **Checkpoint before handoff** — `pre-compact-state.sh` hook saves trajectory; also run `ss-checkpoint` manually before `/handoff`
-6. **Show full output when debugging** — never suppress compiler errors, test failures, or diagnostic output. Use `--quiet` only for commands where you don't need the output.
+1. **Use `oracle crate <name>`** for symbol lookups and **`ss exports <crate>`** for public API signatures instead of reading full source files
+2. **Use `context7 search <query>`** for dependency API docs instead of browsing docs.rs manually
+3. **Sprint model routing** — `test`/`docs` scope tasks use `model: "haiku"`; all other scopes inherit sonnet from opusplan
+4. **Commit messages: 1 line only** — no body, no bullet lists
+5. **Board summaries: counts only** — one line per workstream; no full task tables in output
+6. **Checkpoint before handoff** — `pre-compact-state.sh` hook saves trajectory; also run `ss-checkpoint` manually before `/handoff`
+7. **Show full output when debugging** — never suppress compiler errors, test failures, or diagnostic output. Use `--quiet` only for commands where you don't need the output.
 
 ## NO SUPPRESSING WARNINGS
 
@@ -115,7 +144,7 @@ Always use these tools to minimize context bloat and maximize efficiency:
 
 Use `ss` instead of raw cargo/git. Key commands: `ss crates`, `ss affected <files>`, `ss search <pattern>`, `ss exports <crate>`, `ss check [files]`, `ss scaffold <type> <name>`, `ss health`, `ss bottleneck`. Run `ss --help` for full list.
 
-**Skills:** `/pr`, `/deploy`, `/test-sprint`, `/handoff`, `/sprint ws-NNN`, `/board`.
+**Skills:** `/pr`, `/deploy`, `/test-sprint`, `/handoff`, `/sprint ws-NNN`, `/board`, `/docs`.
 
 ## `ast-grep` — Structural Search & Replace
 

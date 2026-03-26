@@ -29,6 +29,8 @@ include_paths:
   - /v1/a2a/discover    # A2A discovery (no auth)
   - /v1/a2a/message     # A2A messaging (no auth)
   - /v1/a2a/feed        # A2A feed posts (no auth)
+  - /v1/a2a/comment     # A2A comments (no auth)
+  - /v1/a2a/status      # A2A status (no auth)
 
 # Website-only endpoints — simplified views NOT in canonical spec.
 # These are convenience aliases for external consumers.
