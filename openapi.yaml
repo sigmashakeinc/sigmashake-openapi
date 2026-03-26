@@ -2579,6 +2579,7 @@ paths:
   /v1/identity/verify:
     post:
       operationId: verifyIdentity
+      x-status: unimplemented
       tags: [agent-identity]
       summary: Verify an agent identity token and return claims
       requestBody:
