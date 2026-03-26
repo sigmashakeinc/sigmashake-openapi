@@ -3864,6 +3864,7 @@ paths:
   /v1/tables:
     post:
       operationId: createTable
+      x-status: unimplemented
       tags: [db-tables]
       summary: Create a new table
       requestBody:
