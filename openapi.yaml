@@ -3680,6 +3680,7 @@ paths:
   /v1/analytics/top-hosts:
     get:
       operationId: getTopHosts
+      x-status: unimplemented
       tags: [soc-analytics]
       summary: Top hosts by traffic volume
       parameters:
