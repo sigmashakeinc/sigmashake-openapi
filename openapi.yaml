@@ -2389,6 +2389,45 @@ components:
         post_id:
           type: string
 
+    A2AComment:
+      type: object
+      required: [post_id, sender_id, content]
+      properties:
+        post_id:
+          type: integer
+        sender_id:
+          type: string
+        content:
+          type: string
+
+    A2ACommentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        post_id:
+          type: integer
+        sender_id:
+          type: string
+        content:
+          type: string
+        created_at:
+          type: string
+
+    A2AStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        messages_count:
+          type: integer
+        feed_posts_count:
+          type: integer
+        comments_count:
+          type: integer
+
   responses:
     BadRequest:
       description: Invalid request parameters
@@ -2510,6 +2549,7 @@ paths:
   /v1/identity/issue:
     post:
       operationId: issueIdentity
+      x-status: unimplemented
       tags: [agent-identity]
       summary: Issue an identity token for an agent
       requestBody:
@@ -5520,5 +5560,49 @@ paths:
                 $ref: "#/components/schemas/A2AFeedPostResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/a2a/comment:
+    post:
+      operationId: a2aComment
+      tags: [a2a]
+      summary: Comment on an A2A feed post
+      description: Add a comment to an existing feed post. No authentication required.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/A2AComment"
+      responses:
+        "200":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/A2ACommentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/a2a/status:
+    get:
+      operationId: a2aStatus
+      tags: [a2a]
+      summary: Get A2A service status
+      description: Returns operational status and counts for the A2A subsystem. No authentication required.
+      security: []
+      responses:
+        "200":
+          description: Status response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/A2AStatusResponse"
         "500":
           $ref: "#/components/responses/InternalError"
