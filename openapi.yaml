@@ -3849,6 +3849,7 @@ paths:
   /v1/db/health:
     get:
       operationId: dbHealth
+      x-status: unimplemented
       tags: [db-tables]
       summary: DB Server health check
       security: []
