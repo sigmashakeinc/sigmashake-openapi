@@ -118,7 +118,7 @@ Always use these tools to minimize context bloat and maximize efficiency:
 
 1. **Use `oracle crate <name>`** for symbol lookups and **`ss exports <crate>`** for public API signatures instead of reading full source files
 2. **Use `context7 search <query>`** for dependency API docs instead of browsing docs.rs manually
-3. **Sprint model routing** — `test`/`docs` scope tasks use `model: "haiku"`; all other scopes inherit sonnet from opusplan
+3. **Sprint model routing** — `test`/`docs` scope tasks use `model: "haiku"`; all other scopes inherit from the session model
 4. **Commit messages: 1 line only** — no body, no bullet lists
 5. **Board summaries: counts only** — one line per workstream; no full task tables in output
 6. **Checkpoint before handoff** — `pre-compact-state.sh` hook saves trajectory; also run `ss-checkpoint` manually before `/handoff`
