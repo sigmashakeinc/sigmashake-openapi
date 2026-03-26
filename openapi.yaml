@@ -2759,6 +2759,7 @@ paths:
   /v1/memory:
     post:
       operationId: storeMemory
+      x-status: unimplemented
       tags: [agent-memory]
       summary: Store a memory entry
       requestBody:
