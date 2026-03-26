@@ -2605,6 +2605,7 @@ paths:
   /v1/identity/revoke:
     post:
       operationId: revokeIdentity
+      x-status: unimplemented
       tags: [agent-identity]
       summary: Revoke an agent identity token
       requestBody:
