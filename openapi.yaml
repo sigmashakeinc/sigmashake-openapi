@@ -3926,6 +3926,7 @@ paths:
   /v1/query:
     post:
       operationId: queryData
+      x-status: unimplemented
       tags: [db-data]
       summary: Query data from a table
       description: |
