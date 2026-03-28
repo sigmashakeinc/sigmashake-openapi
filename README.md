@@ -12,6 +12,7 @@ Complete OpenAPI 3.1 specification for the SigmaShake AI-Native platform.
 | **SOC API** | Incidents, alerts, metrics, compliance, logs, correlation, analytics |
 | **Gateway** | Pre/post tool call interception and policy enforcement |
 | **DB Server** | Table management, columnar queries, vector search, clustering |
+| **Agent SDK** | Remote triggers, session context, MCP tool registry, usage tracking |
 
 ## Single Source of Truth
 
