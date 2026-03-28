@@ -1,0 +1,867 @@
+openapi: 3.1.0
+info:
+  title: SigmaShake Agent SDK API
+  version: 1.0.0
+  description: |
+    Backend API for the Claude Agent SDK integration.
+    Provides remote triggers, session context management, MCP tool registry,
+    and token usage observability for AI agents.
+    All responses are tenant-scoped via Bearer token — tenant_id is never in the URL.
+  contact:
+    name: SigmaShake Engineering
+    url: https://sigmashake.com
+  license:
+    name: Proprietary
+    url: https://sigmashake.com/license
+
+servers:
+  - url: https://api.sigmashake.com
+    description: Production
+  - url: http://localhost:5150
+    description: Local Development
+
+tags:
+  - name: triggers
+    description: Remote trigger management and execution
+  - name: context
+    description: Session context storage and retrieval
+  - name: tools
+    description: MCP tool registry
+  - name: usage
+    description: Token usage observability
+
+security:
+  - BearerAuth: []
+
+paths:
+  /v1/agents/{agent_id}/triggers:
+    post:
+      operationId: createTrigger
+      summary: Create a trigger
+      description: Register a new remote trigger for the specified agent.
+      tags:
+        - triggers
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTriggerRequest"
+      responses:
+        "201":
+          description: Trigger created
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerDefinition"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listTriggers
+      summary: List triggers
+      description: Returns all triggers registered for the specified agent.
+      tags:
+        - triggers
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+      responses:
+        "200":
+          description: List of triggers
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - triggers
+                properties:
+                  triggers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TriggerDefinition"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agents/{agent_id}/triggers/{trigger_id}/execute:
+    post:
+      operationId: executeTrigger
+      summary: Execute a trigger
+      description: Initiates execution of the specified trigger. Returns an execution_id for status polling.
+      tags:
+        - triggers
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+        - $ref: "#/components/parameters/trigger_id"
+      responses:
+        "202":
+          description: Execution started
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerExecution"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agents/{agent_id}/triggers/{trigger_id}/status:
+    get:
+      operationId: getTriggerStatus
+      summary: Get execution status
+      description: Returns the current status, result, and token usage for the most recent execution of the specified trigger.
+      tags:
+        - triggers
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+        - $ref: "#/components/parameters/trigger_id"
+      responses:
+        "200":
+          description: Execution status
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerExecution"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agents/{agent_id}/triggers/{trigger_id}:
+    delete:
+      operationId: deleteTrigger
+      summary: Delete a trigger
+      description: Permanently removes the specified trigger and all its execution history.
+      tags:
+        - triggers
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+        - $ref: "#/components/parameters/trigger_id"
+      responses:
+        "204":
+          description: Trigger deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agents/{agent_id}/context:
+    put:
+      operationId: storeContext
+      summary: Store session context
+      description: Stores or replaces the session context for the specified agent. Includes conversation history, system prompt, and tool configuration.
+      tags:
+        - context
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreContextRequest"
+      responses:
+        "200":
+          description: Context stored
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionContext"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: getContext
+      summary: Get session context
+      description: Returns the current session context for the specified agent.
+      tags:
+        - context
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+      responses:
+        "200":
+          description: Session context
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionContext"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: clearContext
+      summary: Clear session context
+      description: Removes the session context for the specified agent.
+      tags:
+        - context
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+      responses:
+        "204":
+          description: Context cleared
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agents/{agent_id}/tools:
+    post:
+      operationId: registerTools
+      summary: Register tools
+      description: Registers one or more MCP tools for the specified agent. Replaces any existing tools with the same name.
+      tags:
+        - tools
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterToolsRequest"
+      responses:
+        "200":
+          description: Tools registered
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - tools
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ToolDefinition"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listTools
+      summary: List registered tools
+      description: Returns all MCP tools registered for the specified agent.
+      tags:
+        - tools
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+      responses:
+        "200":
+          description: List of tools
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - tools
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ToolDefinition"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agents/{agent_id}/tools/{tool_name}:
+    delete:
+      operationId: unregisterTool
+      summary: Unregister a tool
+      description: Removes the specified MCP tool from the agent's registry.
+      tags:
+        - tools
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+        - $ref: "#/components/parameters/tool_name"
+      responses:
+        "204":
+          description: Tool unregistered
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agents/{agent_id}/usage:
+    get:
+      operationId: getUsage
+      summary: Get token usage
+      description: Returns aggregated token usage for the specified agent within the given time range.
+      tags:
+        - usage
+      parameters:
+        - $ref: "#/components/parameters/agent_id"
+        - $ref: "#/components/parameters/from"
+        - $ref: "#/components/parameters/to"
+      responses:
+        "200":
+          description: Token usage summary
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Tenant-scoped Bearer token. All responses are filtered to the tenant associated with this token.
+
+  headers:
+    X-RateLimit-Limit:
+      description: Maximum number of requests allowed in the current window
+      schema:
+        type: integer
+    X-RateLimit-Remaining:
+      description: Number of requests remaining in the current window
+      schema:
+        type: integer
+    X-RateLimit-Reset:
+      description: UTC epoch seconds when the rate limit window resets
+      schema:
+        type: integer
+
+  parameters:
+    agent_id:
+      name: agent_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique identifier of the agent
+    trigger_id:
+      name: trigger_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique identifier of the trigger
+    tool_name:
+      name: tool_name
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: "^[a-z][a-z0-9_]*$"
+      description: Name of the registered tool
+    from:
+      name: from
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      description: Start of time range (ISO 8601). Defaults to 24 hours ago.
+    to:
+      name: to
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      description: End of time range (ISO 8601). Defaults to now.
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Missing or invalid Bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          $ref: "#/components/headers/X-RateLimit-Limit"
+        X-RateLimit-Remaining:
+          $ref: "#/components/headers/X-RateLimit-Remaining"
+        X-RateLimit-Reset:
+          $ref: "#/components/headers/X-RateLimit-Reset"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+          examples:
+            - "invalid_parameter"
+            - "unauthorized"
+            - "not_found"
+        message:
+          type: string
+          description: Human-readable error description
+        details:
+          type: object
+          additionalProperties: true
+          description: Optional structured error details
+
+    CreateTriggerRequest:
+      type: object
+      required:
+        - name
+        - prompt
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: Human-readable name for the trigger
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 65536
+          description: The prompt to execute when the trigger fires
+        schedule:
+          type: string
+          maxLength: 128
+          description: Optional cron expression for scheduled execution
+          examples:
+            - "0 */6 * * *"
+            - "0 9 * * MON-FRI"
+        tools:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Names of MCP tools available during execution
+        max_turns:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Maximum number of conversation turns
+        model:
+          type: string
+          default: "claude-sonnet-4-6"
+          description: Model to use for execution
+          examples:
+            - "claude-opus-4-6"
+            - "claude-sonnet-4-6"
+            - "claude-haiku-4-5-20251001"
+
+    TriggerDefinition:
+      type: object
+      required:
+        - id
+        - name
+        - prompt
+        - tools
+        - max_turns
+        - model
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique trigger identifier
+        name:
+          type: string
+          description: Human-readable name for the trigger
+        prompt:
+          type: string
+          description: The prompt to execute when the trigger fires
+        schedule:
+          type: string
+          nullable: true
+          description: Cron expression for scheduled execution, or null for manual-only
+        tools:
+          type: array
+          items:
+            type: string
+          description: Names of MCP tools available during execution
+        max_turns:
+          type: integer
+          description: Maximum number of conversation turns
+        model:
+          type: string
+          description: Model used for execution
+        created_at:
+          type: string
+          format: date-time
+          description: When the trigger was created (ISO 8601)
+        updated_at:
+          type: string
+          format: date-time
+          description: When the trigger was last modified (ISO 8601)
+
+    TriggerExecution:
+      type: object
+      required:
+        - execution_id
+        - trigger_id
+        - status
+        - token_usage
+        - started_at
+      properties:
+        execution_id:
+          type: string
+          format: uuid
+          description: Unique execution identifier
+        trigger_id:
+          type: string
+          format: uuid
+          description: The trigger that was executed
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - completed
+            - failed
+          description: Current execution status
+        result:
+          type: string
+          nullable: true
+          description: Execution result text, available when status is completed or failed
+        token_usage:
+          $ref: "#/components/schemas/TokenUsage"
+        duration_ms:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Total execution duration in milliseconds, available when completed or failed
+        started_at:
+          type: string
+          format: date-time
+          description: When execution began (ISO 8601)
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When execution finished (ISO 8601), null if still running
+
+    TokenUsage:
+      type: object
+      required:
+        - input
+        - output
+        - cache
+      properties:
+        input:
+          type: integer
+          minimum: 0
+          description: Input tokens consumed
+        output:
+          type: integer
+          minimum: 0
+          description: Output tokens generated
+        cache:
+          type: integer
+          minimum: 0
+          description: Cache read tokens
+
+    StoreContextRequest:
+      type: object
+      properties:
+        conversation_context:
+          type: object
+          additionalProperties: true
+          description: Freeform conversation context (message history, state, etc.)
+        system_prompt:
+          type: string
+          maxLength: 65536
+          description: System prompt for the agent session
+        tool_config:
+          type: object
+          additionalProperties: true
+          description: Tool configuration (permissions, defaults, overrides)
+
+    SessionContext:
+      type: object
+      required:
+        - session_id
+        - agent_id
+        - created_at
+        - updated_at
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          description: Unique session context identifier
+        agent_id:
+          type: string
+          format: uuid
+          description: Agent this context belongs to
+        conversation_context:
+          type: object
+          additionalProperties: true
+          description: Stored conversation context
+        system_prompt:
+          type: string
+          nullable: true
+          description: System prompt for the agent session
+        tool_config:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Tool configuration
+        created_at:
+          type: string
+          format: date-time
+          description: When the context was first stored (ISO 8601)
+        updated_at:
+          type: string
+          format: date-time
+          description: When the context was last updated (ISO 8601)
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the context expires (ISO 8601), null for no expiration
+
+    RegisterToolsRequest:
+      type: object
+      required:
+        - tools
+      properties:
+        tools:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ToolDefinitionInput"
+          description: Tools to register
+
+    ToolDefinitionInput:
+      type: object
+      required:
+        - name
+        - description
+        - input_schema
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^[a-z][a-z0-9_]*$"
+          description: Unique tool name (lowercase, underscores allowed)
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Human-readable description of what the tool does
+        input_schema:
+          type: object
+          additionalProperties: true
+          description: JSON Schema defining the tool's input parameters
+
+    ToolDefinition:
+      type: object
+      required:
+        - name
+        - description
+        - input_schema
+      properties:
+        name:
+          type: string
+          description: Unique tool name
+        description:
+          type: string
+          description: Human-readable description of what the tool does
+        input_schema:
+          type: object
+          additionalProperties: true
+          description: JSON Schema defining the tool's input parameters
+
+    UsageSummary:
+      type: object
+      required:
+        - agent_id
+        - period_start
+        - period_end
+        - total_input_tokens
+        - total_output_tokens
+        - total_cache_tokens
+        - request_count
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+          description: Agent these usage metrics belong to
+        period_start:
+          type: string
+          format: date-time
+          description: Start of the reporting period (ISO 8601)
+        period_end:
+          type: string
+          format: date-time
+          description: End of the reporting period (ISO 8601)
+        total_input_tokens:
+          type: integer
+          minimum: 0
+          description: Total input tokens consumed in the period
+        total_output_tokens:
+          type: integer
+          minimum: 0
+          description: Total output tokens generated in the period
+        total_cache_tokens:
+          type: integer
+          minimum: 0
+          description: Total cache read tokens in the period
+        request_count:
+          type: integer
+          minimum: 0
+          description: Total number of API requests in the period
